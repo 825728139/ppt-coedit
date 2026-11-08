@@ -50,8 +50,17 @@ try {
     files.a = ''; await session.poll(); const afterEmpty = content;
     files.a = 'completed-write'; await session.poll();
     const afterCompleted = content;
+    let releaseSave;
+    window.showSaveFilePicker=async()=>new Promise(resolve=>{releaseSave=resolve});
+    const pendingSave=document.querySelector('#save-source-as').onclick();
+    while(!releaseSave)await new Promise(resolve=>setTimeout(resolve,0));
+    content='latest-during-picker';releaseSave(handles.b);await pendingSave;
+    const latestAfterPicker=files.b;
+    window.showSaveFilePicker=async()=>({...handles.b,createWritable:async()=>{let text;return{write:async value=>{text=value},close:async()=>{files.b=text;content='arrived-during-write'}}}});
+    content='before-write';await document.querySelector('#save-source-as').onclick();
+    const afterLateWrite=content;await session.save();const savedLateWrite=files.b;
     session.dispose();
-    return { concurrentPickerCalls, boundAfterFailedSaveAs, originalAfterRecovery, otherAfterRecovery, externalAfterSave, displayedAfterSave, retriedContent, afterEmpty, afterCompleted, reads };
+    return { concurrentPickerCalls, boundAfterFailedSaveAs, originalAfterRecovery, otherAfterRecovery, externalAfterSave, displayedAfterSave, retriedContent, afterEmpty, afterCompleted,latestAfterPicker,afterLateWrite,savedLateWrite, reads };
   }, moduleUrl);
   assert.equal(result.concurrentPickerCalls, 1);
   assert.equal(result.boundAfterFailedSaveAs, 'a.html');
@@ -62,5 +71,7 @@ try {
   assert.equal(result.retriedContent, 'retry-content');
   assert.equal(result.afterEmpty, 'retry-content');
   assert.equal(result.afterCompleted, 'completed-write');
+  assert.equal(result.latestAfterPicker,'latest-during-picker');
+  assert.equal(result.afterLateWrite,'arrived-during-write');assert.equal(result.savedLateWrite,'arrived-during-write');
   console.log('PASS: picker exclusivity, failed Save As binding, latest disk priority, retry after transient load, empty intermediate writes');
 } finally { await browser.close(); }

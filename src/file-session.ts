@@ -63,10 +63,12 @@ export function installFileSession(options: { load(source:string):Promise<void>;
     busy=true;let writable:Awaited<ReturnType<HtmlFileHandle['createWritable']>>|undefined;
     try{
       await options.flush();
-      const text=options.render(),next=await picker.showSaveFilePicker({suggestedName:handle?.name||'演示文稿.html',types:[{description:'HTML 演示文稿',accept:{'text/html':['.html']}}]});
+      const next=await picker.showSaveFilePicker({suggestedName:handle?.name||'演示文稿.html',types:[{description:'HTML 演示文稿',accept:{'text/html':['.html']}}]});
+      await options.flush();const text=options.render();
       writable=await next.createWritable();await writable.write(text);await writable.close();writable=undefined;
       // Reopening establishes source ranges for newly created documents as well.
-      await load(text,next);report('已另存并绑定新文件');
+      if(options.render()!==text){handle=next;baseline=text;el('source-name').textContent=next.name;el<HTMLButtonElement>('reload-source').disabled=false;report('已另存并绑定新文件 · 写入期间产生的新修改已保留，请再次保存。')}
+      else{await load(text,next);report('已另存并绑定新文件')}
     }catch(error){await writable?.abort?.().catch(()=>{});if((error as DOMException).name!=='AbortError')report(`另存失败：${String(error)}`)}finally{busy=false}
   }
   el('open-source').onclick=open;el('reload-source').onclick=reload;el('save-source-as').onclick=saveAs;

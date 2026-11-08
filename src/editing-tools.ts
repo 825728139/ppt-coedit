@@ -10,7 +10,7 @@ export function installEditingTools(editor: Editor, batch: (action: () => void) 
   bar.querySelector('.object-controls')!.append(enter);
   enter.onclick = () => { const child = editor.getSelected()?.components().find((c: Component) => c.get('type') !== 'textnode'); if (child) editor.select(child); };
   const el = <T extends HTMLElement = HTMLElement>(id: string) => bar.querySelector<T>(`#${id}`)!;
-  const isRoot = (c: Component) => c.getClasses().includes('slide-root') || c === editor.getWrapper();
+  const isRoot = (c: Component) => c.getClasses().includes('slide-root') || !!c.get('coeditPageRoot') || c === editor.getWrapper();
   const locked = (c?: Component): boolean => !!c && (!!c.get('coeditLocked') || locked(c.parent()));
   const computed = (c: Component) => { const node = c.getEl(); return node && node.ownerDocument.defaultView!.getComputedStyle(node); };
   function update() {

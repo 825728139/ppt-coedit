@@ -7,9 +7,10 @@ import { installEditingTools } from './editing-tools';
 import { installArrows } from './arrows';
 import { installTextFormat } from './text-format';
 import { descendants, slideRoot } from './component-tree';
-import { SourceDocument } from './source-document';
+import { SourceDocument, SOURCE_KEY } from './source-document';
 import { installFileSession } from './file-session';
 import { installLocking, isLocked } from './locking';
+import { installCloning } from './cloning';
 
 document.querySelector('#app')!.innerHTML = `
 <header><div class="brand">◈ 共页 <small>COEDIT / LAB</small></div><div class="document">人机协同演示文稿 <span id="status">准备中</span></div><button id="open-html"></button><button id="export">导出 HTML</button><button id="present" class="primary">▶ 放映</button></header>
@@ -59,6 +60,7 @@ editor.DomComponents.addType('slide-root', { isComponent: el => el.classList?.co
 let revision = 0, muted = true, timer: ReturnType<typeof setTimeout>;
 let history: string[] = [], cursor = -1;
 let sourceDocument: SourceDocument | undefined;
+let documentGeneration=0;
 const requests = new Map<string, { fingerprint: string; result: { revision: number } }>();
 const storageKey = 'ppt-coedit-v1';
 const snapshot = () => JSON.stringify({ project: editor.getProjectData(), selectedPageId: editor.Pages.getSelected()?.getId() });
@@ -105,9 +107,11 @@ const api = {
 // Temporary regression harness only. Production has no Agent/LLM connection surface.
 if(new URLSearchParams(location.search).has('test')) (window as unknown as { pptAgent: typeof api }).pptAgent = api;
 installLocking(editor);
+installCloning(editor);
 installEditingTools(editor, batch);
 installTextFormat(editor, batch);
 installArrows(editor, batch);
+editor.on('component:clone',(component:Component)=>[component,...descendants(component)].forEach(c=>c.removeAttributes(SOURCE_KEY)));
 editor.on('update', changed); editor.on('page:select', renderPages); editor.on('component:selected component:deselected', selectInfo);
 editor.on('load', () => {
   let recovered=false;
@@ -141,10 +145,12 @@ $('confirm-import').onclick = async () => {
   const file = $<HTMLInputElement>('deck-file').files?.[0];
   if (!file) { $('import-summary').textContent = '请先选择 HTML 文件。'; return; }
   const button = $<HTMLButtonElement>('confirm-import'); button.disabled = true;
+  const generation=documentGeneration;
   $('import-summary').textContent = '正在解析文件与资源…'; $('import-warnings').replaceChildren();
   try {
     const assets = [...($<HTMLInputElement>('asset-folder').files || [])];
     const result = await importHtmlDeck(await file.text(), assets, file.name);
+    if(generation!==documentGeneration)throw new Error('文稿已被替换，本次导入已取消，请重新操作。');
     batch(() => { for (const slide of result.slides) { addPage(slide.html, slide.css); editor.Pages.getSelected()!.set('name', slide.name); } });
     $('import-summary').textContent = `已导入 ${result.slides.length} 页，追加到当前文稿。可关闭窗口继续编辑；整次导入可撤销。`;
     for (const warning of result.warnings) { const item = document.createElement('p'); item.textContent = warning; $('import-warnings').append(item); }
@@ -165,7 +171,7 @@ async function loadSource(source: string) {
     editor.Pages.select(editor.Pages.getAll()[Math.min(selectedIndex,result.slides.length-1)]);
     document.capture(editor); sourceDocument=document;
   }catch(error){restoreSnapshot(before);throw error}finally{muted=false}
-  revision++;history=[];cursor=-1;requests.clear();commit();
+  documentGeneration++;revision++;history=[];cursor=-1;requests.clear();commit();
 }
 const fileSession = installFileSession({
   load:loadSource,

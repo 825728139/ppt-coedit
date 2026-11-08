@@ -87,6 +87,8 @@ HTML 文件是协作的唯一权威内容。无改动保存保持源码完全一
 
 整体操作链路审查见 [OVERALL_REVIEW.md](./OVERALL_REVIEW.md)，包含父级锁、放映往返、箭头切页、换图及草稿恢复。
 
+后续五轮代码审查见 [DEEP_REVIEW.md](./DEEP_REVIEW.md)，包含表格/SVG、样式回写、异步快照、嵌套 CSS、共享分页和复制粘贴。
+
 ```powershell
 npm test
 npm run build
@@ -96,6 +98,7 @@ node tests/file-workflow-browser.mjs
 node tests/file-review-browser.mjs
 node tests/file-session-browser.mjs
 node tests/overall-review-browser.mjs
+node tests/deep-review-browser.mjs
 node tests/browser.mjs
 node tests/import-browser.mjs
 node tests/editing-browser.mjs
@@ -116,7 +119,7 @@ node tests/review-browser.mjs
 - 当前页面列表是文字列表，尚未实现真实缩略图、排序和页面复制。
 - 富文本、复杂嵌套布局、中文输入法及拖动手势的历史分组仍需专项验证；撤销以按钮操作为准，暂未统一 iframe 内的快捷键。
 - 锁属于本机编辑工程状态，不写入源 HTML；外部更新重新加载后需要按需重新锁定。
-- CSS 选择器使用语法树处理，支持含逗号的 :is() 等选择器及分组规则；文件导入停用动画并提示。复杂 CSS 嵌套、SVG 内部引用及脚本布局仍需专项适配，不承诺任意网页 HTML/CSS 无损导入。
+- CSS 选择器使用语法树处理，支持含逗号的 :is()、分组及常见嵌套规则；文件导入停用动画并提示。非常规 CSS 语法、复杂 SVG 引用及脚本布局仍需专项适配，不承诺任意网页 HTML/CSS 无损导入。
 - 文本 patch 限于没有结构子元素的文字对象，避免替换整个卡片结构。修改含多段富文本的对象应后续增加精确文本命令。
 - 工程使用 localStorage 与图片 data URL，适合验证；后续迁移到 IndexedDB + Blob。存储失败会显示状态。历史只在本次会话保留，刷新恢复内容不恢复历史。
 - 快照历史暂不限制长度，后续增加容量控制。复杂大文稿尚未做性能基准。
@@ -126,7 +129,7 @@ node tests/review-browser.mjs
 
 ## 开源项目复用统计
 
-统计时间：2026-11-08T13:24:03.787Z。当前实际通过 npm 接入 **GrapesJS、AntV X6、PostCSS、postcss-selector-parser、parse5**，未从 clone 的仓库直接复制实现代码。X6 的已安装版本见 package-lock.json。其他已克隆仓库仍为调研参考。
+统计时间：2026-11-08T14:54:04.347Z。当前实际通过 npm 接入 **GrapesJS、AntV X6、PostCSS、postcss-selector-parser、parse5**，未从 clone 的仓库直接复制实现代码。X6 的已安装版本见 package-lock.json。其他已克隆仓库仍为调研参考。
 
 ### 占原项目与本项目维护源码的比例
 
@@ -147,24 +150,24 @@ node tests/review-browser.mjs
 
 这不表示 GrapesJS/X6 没有被使用。对于 npm 依赖，**使用了原仓库整体多少源码或多少执行路径，目前未测覆盖率**；不会把引入入口写成“使用整个原项目 100%”。仓库还包含测试、工具和文档，不能以 API 调用数量推断源码覆盖率。
 
-本项目维护的运行源码（src + index.html）共 **13 个文件、996 个非空物理行、99,200 UTF-8 字节**。不含测试、配置、脚本、文档、node_modules 和 dist；紧凑排版下行数不代表开发工作量。
+本项目维护的运行源码（src + index.html）共 **14 个文件、1063 个非空物理行、105,192 UTF-8 字节**。不含测试、配置、脚本、文档、node_modules 和 dist；紧凑排版下行数不代表开发工作量。
 
 ### 占当前应用运行时 JavaScript 的比例
 
-分母为 Rollup renderedLength 合计 **5,030,224 个字符**，即 tree-shaking 后、最终 chunk 压缩前的模块代码量。不是下载体积、gzip 大小、执行覆盖率、功能贡献或开发投入占比。CommonJS 辅助模块按来源包归属；GrapesJS 发布文件内自带的依赖未再细分。
+分母为 Rollup renderedLength 合计 **5,036,134 个字符**，即 tree-shaking 后、最终 chunk 压缩前的模块代码量。不是下载体积、gzip 大小、执行覆盖率、功能贡献或开发投入占比。CommonJS 辅助模块按来源包归属；GrapesJS 发布文件内自带的依赖未再细分。
 
 | 来源 | 构建 JS 字符数 | 占当前运行时 JS |
 | --- | ---: | ---: |
-| grapesjs | 2,771,914 | 55.105% |
-| @antv/x6 | 1,254,817 | 24.946% |
-| parse5 | 314,061 | 6.243% |
-| lodash-es | 178,025 | 3.539% |
-| postcss-selector-parser | 155,635 | 3.094% |
-| postcss | 128,045 | 2.546% |
-| application | 84,951 | 1.689% |
-| entities | 59,056 | 1.174% |
-| mousetrap | 35,845 | 0.713% |
-| dom-align | 35,718 | 0.710% |
+| grapesjs | 2,771,914 | 55.041% |
+| @antv/x6 | 1,254,817 | 24.916% |
+| parse5 | 314,061 | 6.236% |
+| lodash-es | 178,025 | 3.535% |
+| postcss-selector-parser | 155,635 | 3.090% |
+| postcss | 128,045 | 2.543% |
+| application | 90,861 | 1.804% |
+| entities | 59,056 | 1.173% |
+| mousetrap | 35,845 | 0.712% |
+| dom-align | 35,718 | 0.709% |
 | cssesc | 3,690 | 0.073% |
 | tslib | 2,688 | 0.053% |
 | vite-runtime | 2,353 | 0.047% |

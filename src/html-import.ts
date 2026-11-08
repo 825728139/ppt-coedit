@@ -4,9 +4,32 @@ import selectorParser from 'postcss-selector-parser';
 export interface ImportedSlide { name: string; html: string; css: string; sourceKey?: string }
 export interface ImportResult { slides: ImportedSlide[]; warnings: string[] }
 
+/** GrapesJS consumes flat rules; expand nesting while preserving declaration order. */
+function flattenCss(input: postcss.Root) {
+  const output=postcss.root();
+  const combine=(parents:string[],children:string[])=>children.map(child=>selectorParser(selectors=>{
+    const nodes=selectorParser().astSync(`:is(${parents.join(',')})`).first!.nodes;
+    selectors.each(selector=>{
+      let explicit=false;
+      selector.walk(node=>{if(node.type==='nesting'){explicit=true;node.replaceWith(...nodes.map(part=>part.clone()))}});
+      if(!explicit){selector.prepend(selectorParser.combinator({value:' '}));[...nodes].reverse().forEach(part=>selector.prepend(part.clone()))}
+    });
+  }).processSync(child));
+  function visit(container:postcss.Container,target:postcss.Container,parents?:string[]) {
+    let declarations:postcss.ChildNode[]=[];
+    const flush=()=>{if(!declarations.length)return;if(parents)target.append(postcss.rule({selector:parents.join(','),nodes:declarations}));else target.append(...declarations);declarations=[]};
+    container.nodes?.forEach(node=>{
+      if(node.type==='rule'){flush();visit(node,target,parents?combine(parents,node.selectors):node.selectors)}
+      else if(node.type==='atrule'&&node.nodes){flush();if(/keyframes$/i.test(node.name)){target.append(node.clone());return}const at=node.clone({nodes:[]});target.append(at);visit(node,at,parents)}
+      else declarations.push(node.clone() as postcss.ChildNode);
+    });flush();
+  }
+  visit(input,output);return output;
+}
+
 /** Scope selectors with an AST so commas inside :is() and attributes stay intact. */
 export function scopeCss(css: string, rootId: string, preserveRoot = false): string {
-  const tree = postcss.parse(css);
+  const tree = flattenCss(postcss.parse(css));
   tree.walkRules(rule => {
     if (rule.parent?.type === 'atrule' && /keyframes$/i.test(rule.parent.name)) return;
     rule.selector = selectorParser(selectors => {
@@ -24,7 +47,7 @@ export function scopeCss(css: string, rootId: string, preserveRoot = false): str
   return tree.toString();
 }
 
-const pathKey = (path: string) => decodeURIComponent(path.split(/[?#]/)[0]).replace(/\\/g, '/').replace(/^\.\//, '');
+const pathKey = (path: string, literalFile=false) => {const raw=literalFile?path:path.split(/[?#]/)[0];let decoded=raw;if(!literalFile)try{decoded=decodeURIComponent(raw)}catch{/* A literal percent is a valid local filename. */}return decoded.replace(/\\/g, '/').replace(/^\.\//, '')};
 const fileData = (file: File) => new Promise<string>((resolve, reject) => {
   const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsDataURL(file);
 });
@@ -34,7 +57,7 @@ export async function importHtmlDeck(source: string, assets: File[] = [], source
   const warnings = new Set<string>();
   const files = new Map<string, File>();
   assets.forEach(file => {
-    const path = pathKey(file.webkitRelativePath || file.name);
+    const path = pathKey(file.webkitRelativePath || file.name,true);
     files.set(path, file);
     if (path.includes('/')) files.set(path.slice(path.indexOf('/') + 1), file);
   });

@@ -10,7 +10,7 @@ type Patch = { start: number; end: number; text: string };
 const ignored = (name: string) => name === SOURCE_KEY || name === 'data-coedit-textbox' || name.startsWith('data-gjs-');
 const attrs = (c: Component) => Object.fromEntries(Object.entries(c.getAttributes()).filter(([k]) => !ignored(k)).map(([k,v]) => [k,String(v)]));
 const childSignature = (element: Element): string => JSON.stringify([...element.childNodes].map(node => node.nodeType === Node.TEXT_NODE ? ['text',node.textContent] : node instanceof Element ? node.hasAttribute(SOURCE_KEY) ? ['source',node.getAttribute(SOURCE_KEY)] : ['new',node.tagName,childSignature(node)] : ['other',node.nodeType,node.textContent]));
-const modelElement = (c: Component) => new DOMParser().parseFromString(c.toHTML(),'text/html').body.firstElementChild!;
+const modelElement = (c: Component) => {const template=document.createElement('template');template.innerHTML=c.toHTML();const element=template.content.firstElementChild;if(!element)throw new Error(`无法解析编辑对象：${c.get('tagName')}`);return element};
 const escapeAttribute = (s: string) => s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
 
 /** Patch the original source ranges instead of exporting an entirely regenerated deck. */
@@ -21,6 +21,8 @@ export class SourceDocument {
   private baseline = new Map<string, Snapshot>();
   private pageKeys = new Set<string>();
   private virtualKeys = new Set<string>();
+  private pageStyles = new Map<string,{id:string;style:Record<string,string>}>();
+  private sourceIds=new Map<string,string>();
   constructor(source: string) {
     this.original = source; this.doc = new DOMParser().parseFromString(source,'text/html');
     const ast = parse(source,{sourceCodeLocationInfo:true});
@@ -49,11 +51,14 @@ export class SourceDocument {
   }
   preparedHtml() { return this.doc.documentElement.outerHTML; }
   capture(editor: Editor) {
-    this.baseline.clear(); this.pageKeys.clear();
+    this.baseline.clear(); this.pageKeys.clear();this.pageStyles.clear();this.sourceIds.clear();
     editor.Pages.getAll().forEach(page => {
       const key = page.get('coeditSourceRoot') as string | undefined; if(key) this.pageKeys.add(key);
+      const root=slideRoot(page.getMainComponent());if(key&&root)this.pageStyles.set(key,{id:root.getId(),style:{...root.getStyle()} as Record<string,string>});
       descendants(page.getMainComponent()).forEach(component => {
         const key = String(component.getAttributes()[SOURCE_KEY] || ''); if(!key || !this.nodes.has(key)) return;
+        if(key===page.get('coeditSourceRoot'))component.set({coeditPageRoot:true,removable:false,copyable:false,draggable:false,resizable:false},{silent:true});
+        const originalId=this.nodes.get(key)!.element.id;if(originalId)this.sourceIds.set(component.getId(),originalId);
         this.baseline.set(component.getId(),{component,key,attrs:attrs(component),style:{...component.getStyle()} as Record<string,string>,children:childSignature(modelElement(component))});
       });
     });
@@ -61,6 +66,8 @@ export class SourceDocument {
   render(editor: Editor): string {
     const patches: Patch[] = [], innerPatches: Patch[] = [], newPages: string[] = [], models = editor.Pages.getAll().flatMap(page => descendants(page.getMainComponent()));
     const current = new Map(models.map(c => [c.getId(),c]));
+    const currentSourceKeys=new Set(models.map(c=>String(c.getAttributes()[SOURCE_KEY]||'')));
+    const sourceUses=new Map<string,number>();for(const before of this.baseline.values())sourceUses.set(before.key,(sourceUses.get(before.key)||0)+1);
     const changed = new Map<string,string>();
     const originalNode = (key: string) => this.nodes.get(key)!;
     const removal = (key:string):Patch => {const {element,location}=originalNode(key);return {start:element.tagName==='BODY'?location.startTag!.endOffset:location.startOffset,end:element.tagName==='BODY'?location.endTag!.startOffset:location.endOffset,text:''}};
@@ -88,6 +95,8 @@ export class SourceDocument {
         const target = element as HTMLElement;
         style[name] === undefined ? target.style.removeProperty(name) : target.style.setProperty(name,String(style[name]));
       }
+      const page=this.pageStyles.get(before.key),root=page&&current.get(page.id);
+      if(page&&root){const next=root.getStyle();for(const name of new Set([...Object.keys(page.style),...Object.keys(next)]))if(page.style[name]!==next[name])next[name]===undefined?(element as HTMLElement).style.removeProperty(name):(element as HTMLElement).style.setProperty(name,String(next[name]))}
     };
     const clean = (node: Node): Node => {
       if(!(node instanceof Element)) return node.cloneNode(true);
@@ -96,9 +105,16 @@ export class SourceDocument {
       const copy = key && before && this.nodes.has(key) ? originalNode(key).element.cloneNode(false) as Element : node.cloneNode(false) as Element;
       if(before && model) attributes(model,before,copy);
       for(const attribute of [...copy.attributes]) if(ignored(attribute.name)) copy.removeAttribute(attribute.name);
+      if(!key)for(const attribute of [...copy.attributes]){
+        let value=attribute.value.replace(/url\(\s*(['"]?)#([^)'"\s]+)\1\s*\)/g,(match,quote,id)=>this.sourceIds.has(id)?`url(#${this.sourceIds.get(id)})`:match);
+        if(['href','xlink:href'].includes(attribute.name)&&value.startsWith('#'))value='#'+(this.sourceIds.get(value.slice(1))||value.slice(1));
+        if(['aria-labelledby','aria-describedby','for'].includes(attribute.name))value=value.split(/\s+/).map(id=>this.sourceIds.get(id)||id).join(' ');
+        if(value!==attribute.value)copy.setAttribute(attribute.name,value);
+      }
       if(!key && copy.classList.contains('slide-object')) {
-        (copy as HTMLElement).style.position = 'absolute'; (copy as HTMLElement).style.boxSizing = 'border-box';
-        if(copy.classList.contains('card')) Object.assign((copy as HTMLElement).style,{padding:'30px',borderRadius:'18px',background:'#fff',display:'flex',flexDirection:'column',gap:'16px'});
+        const target=copy as HTMLElement;
+        if(!target.style.position)target.style.position = 'absolute';if(!target.style.boxSizing)target.style.boxSizing = 'border-box';
+        if(copy.classList.contains('card'))target.style.cssText='padding:30px;border-radius:18px;background:#fff;display:flex;flex-direction:column;gap:16px;'+target.style.cssText;
       }
       [...node.childNodes].forEach(child => copy.append(clean(child)));
       // Source-only scripts/styles are kept in source, but never executed in the editor.
@@ -108,7 +124,7 @@ export class SourceDocument {
     for(const before of this.baseline.values()) {
       const component = current.get(before.component.getId()), original = originalNode(before.key);
       if(!component) {
-        patches.push(removal(before.key)); continue;
+        if(!currentSourceKeys.has(before.key))patches.push(removal(before.key)); continue;
       }
       const desired = original.element.cloneNode(false) as Element; desired.removeAttribute(SOURCE_KEY); attributes(component,before,desired);
       const signature = JSON.stringify([desired.outerHTML,childSignature(modelElement(component))]);
@@ -127,6 +143,7 @@ export class SourceDocument {
       }
       const element = modelElement(component);
       if(childSignature(element) !== before.children && original.location.endTag) {
+        if((sourceUses.get(before.key)||0)>1)throw new Error('共享分页容器不能整体替换，请通过页面列表删页，或修改页面内部对象。');
         const fragment = this.doc.createElement('div'); [...element.childNodes].forEach(child=>fragment.append(clean(child)));
         preserveOmitted(before.key,fragment);
         innerPatches.push({start:original.location.startTag!.endOffset,end:original.location.endTag.startOffset,text:fragment.innerHTML});
