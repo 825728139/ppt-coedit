@@ -75,14 +75,15 @@ export function installEditingTools(editor: Editor, batch: (action: () => void) 
   const attach = () => { const doc = editor.Canvas.getDocument(); if (doc && !attached.has(doc)) {
     doc.addEventListener('keydown', keyboard, true);
     doc.addEventListener('click', event => {
-      if (!event.altKey) return;
+      if ((event.target as Element).closest('[contenteditable="true"]')) return;
       const node = (event.target as Element).closest('[id]');
       const c = node && editor.Components.getById(node.id);
-      if (c) { event.preventDefault(); event.stopImmediatePropagation(); editor.select(c); }
+      if (c) { if (event.altKey) { event.preventDefault(); event.stopImmediatePropagation(); } editor.select(c); }
     }, true);
     attached.add(doc);
   } };
-  editor.on('canvas:frame:load load', attach);
+  const attachLater = () => requestAnimationFrame(attach);
+  editor.on('canvas:frame:load canvas:frame:load:body load page:select', attachLater);
   editor.on('component:selected component:deselected component:styleUpdate component:update page:select', update);
   editor.on('destroy', () => { document.removeEventListener('keydown', keyboard, true); bar.remove(); });
 }

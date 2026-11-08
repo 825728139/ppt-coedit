@@ -1,53 +1,53 @@
 {
-  "generatedAt": "2026-11-08T10:56:14.631Z",
+  "generatedAt": "2026-11-08T11:23:33.272Z",
   "metric": "Rollup renderedLength characters, after tree-shaking and before final chunk minification; JS only",
   "localSource": {
-    "files": 7,
-    "nonEmptyLines": 485,
-    "bytes": 55324
+    "files": 8,
+    "nonEmptyLines": 555,
+    "bytes": 65394
   },
   "runtimeJavaScript": {
-    "totalRenderedCharacters": 4617434,
+    "totalRenderedCharacters": 4626228,
     "groups": {
       "grapesjs": {
         "modules": 2,
         "renderedCharacters": 2771908,
-        "percent": 60.031
+        "percent": 59.917
       },
       "@antv/x6": {
         "modules": 287,
         "renderedCharacters": 1254793,
-        "percent": 27.175
+        "percent": 27.123
       },
       "lodash-es": {
         "modules": 245,
         "renderedCharacters": 178023,
-        "percent": 3.855
+        "percent": 3.848
       },
       "postcss-selector-parser": {
         "modules": 62,
         "renderedCharacters": 155635,
-        "percent": 3.371
+        "percent": 3.364
       },
       "postcss": {
         "modules": 29,
         "renderedCharacters": 128045,
-        "percent": 2.773
+        "percent": 2.768
       },
       "application": {
-        "modules": 6,
-        "renderedCharacters": 45310,
-        "percent": 0.981
+        "modules": 7,
+        "renderedCharacters": 54104,
+        "percent": 1.17
       },
       "mousetrap": {
         "modules": 3,
         "renderedCharacters": 35845,
-        "percent": 0.776
+        "percent": 0.775
       },
       "dom-align": {
         "modules": 1,
         "renderedCharacters": 35718,
-        "percent": 0.774
+        "percent": 0.772
       },
       "cssesc": {
         "modules": 1,
@@ -82,7 +82,7 @@
     }
   },
   "cssInputs": {
-    "src/style.css": 6207,
+    "src/style.css": 6993,
     "node_modules/grapesjs/dist/css/grapes.min.css": 61053
   }
 }

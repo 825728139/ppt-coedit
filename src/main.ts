@@ -5,6 +5,7 @@ import { validateTransaction, type Transaction } from './protocol';
 import { importHtmlDeck, scopeCss } from './html-import';
 import { installEditingTools } from './editing-tools';
 import { installArrows } from './arrows';
+import { installTextFormat } from './text-format';
 
 document.querySelector('#app')!.innerHTML = `
 <header><div class="brand">◈ 共页 <small>COEDIT / LAB</small></div><div class="document">人机协同演示文稿 <span id="status">准备中</span></div><button id="open-html"></button><button id="export">导出 HTML</button><button id="present" class="primary">▶ 放映</button></header>
@@ -36,6 +37,9 @@ const baseCss = `.slide-root{position:relative;width:1280px;height:720px;overflo
 const editor = grapesjs.init({
   container: '#editor', height: '100%', width: '100%', storageManager: false,
   panels: { defaults: [] }, dragMode: 'absolute',
+  selectorManager: { componentFirst: true },
+  avoidInlineStyle: false,
+  forceClass: false,
   layerManager: { appendTo: '#layers' },
   styleManager: { appendTo: '#styles', sectors: [
     { name: '位置与尺寸', open: true, buildProps: ['left', 'top', 'width', 'height'] },
@@ -86,6 +90,7 @@ const api = {
 };
 (window as unknown as { pptAgent: typeof api }).pptAgent = api;
 installEditingTools(editor, batch);
+installTextFormat(editor, batch);
 installArrows(editor, batch);
 editor.on('update', changed); editor.on('page:select', renderPages); editor.on('component:selected component:deselected', selectInfo);
 editor.on('load', () => {
