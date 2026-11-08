@@ -1,88 +1,98 @@
 {
-  "generatedAt": "2026-11-08T12:03:29.626Z",
+  "generatedAt": "2026-11-08T12:39:26.668Z",
   "metric": "Rollup renderedLength characters, after tree-shaking and before final chunk minification; JS only",
   "localSource": {
-    "files": 10,
-    "nonEmptyLines": 663,
-    "bytes": 74019
+    "files": 12,
+    "nonEmptyLines": 907,
+    "bytes": 92687
   },
   "runtimeJavaScript": {
-    "totalRenderedCharacters": 4633903,
+    "totalRenderedCharacters": 5023775,
     "groups": {
       "grapesjs": {
         "modules": 2,
-        "renderedCharacters": 2771908,
-        "percent": 59.818
+        "renderedCharacters": 2771914,
+        "percent": 55.176
       },
       "@antv/x6": {
         "modules": 287,
-        "renderedCharacters": 1254793,
-        "percent": 27.079
+        "renderedCharacters": 1254817,
+        "percent": 24.978
+      },
+      "parse5": {
+        "modules": 14,
+        "renderedCharacters": 314061,
+        "percent": 6.251
       },
       "lodash-es": {
         "modules": 245,
-        "renderedCharacters": 178023,
-        "percent": 3.842
+        "renderedCharacters": 178025,
+        "percent": 3.544
       },
       "postcss-selector-parser": {
         "modules": 62,
         "renderedCharacters": 155635,
-        "percent": 3.359
+        "percent": 3.098
       },
       "postcss": {
         "modules": 29,
         "renderedCharacters": 128045,
-        "percent": 2.763
+        "percent": 2.549
       },
       "application": {
-        "modules": 9,
-        "renderedCharacters": 61779,
-        "percent": 1.333
+        "modules": 11,
+        "renderedCharacters": 78502,
+        "percent": 1.563
+      },
+      "entities": {
+        "modules": 4,
+        "renderedCharacters": 59056,
+        "percent": 1.176
       },
       "mousetrap": {
         "modules": 3,
         "renderedCharacters": 35845,
-        "percent": 0.774
+        "percent": 0.714
       },
       "dom-align": {
         "modules": 1,
         "renderedCharacters": 35718,
-        "percent": 0.771
+        "percent": 0.711
       },
       "cssesc": {
         "modules": 1,
         "renderedCharacters": 3690,
-        "percent": 0.08
+        "percent": 0.073
       },
       "tslib": {
         "modules": 1,
         "renderedCharacters": 2688,
-        "percent": 0.058
+        "percent": 0.054
       },
       "vite-runtime": {
         "modules": 5,
         "renderedCharacters": 2353,
-        "percent": 0.051
+        "percent": 0.047
       },
       "util-deprecate": {
         "modules": 1,
         "renderedCharacters": 1832,
-        "percent": 0.04
+        "percent": 0.036
       },
       "picocolors": {
         "modules": 2,
         "renderedCharacters": 885,
-        "percent": 0.019
+        "percent": 0.018
       },
       "nanoid": {
         "modules": 1,
         "renderedCharacters": 709,
-        "percent": 0.015
+        "percent": 0.014
       }
     }
   },
   "cssInputs": {
-    "src/style.css": 6993,
+    "src/style.css": 7445,
     "node_modules/grapesjs/dist/css/grapes.min.css": 61053
   }
 }

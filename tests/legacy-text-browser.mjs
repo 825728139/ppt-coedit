@@ -2,7 +2,7 @@ import { chromium } from '@playwright/test';
 import assert from 'node:assert/strict';
 const browser=await chromium.launch();const page=await browser.newPage({viewport:{width:1600,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
 try{
- await page.goto('http://127.0.0.1:5173');await page.waitForFunction(()=>window.pptAgent?.inspect().pages.length);
+ await page.goto('http://127.0.0.1:5173/?test=1');await page.waitForFunction(()=>window.pptAgent?.inspect().pages.length);
  await page.click('#open-html');await page.setInputFiles('#deck-file','tests/fixtures/legacy-export.html');await page.click('#confirm-import');await page.waitForFunction(()=>document.querySelector('#import-summary').textContent.includes('已导入'));await page.click('#cancel-import');await page.locator('#pages .page').first().locator('button').last().click();
  const box=()=>page.frameLocator('.gjs-frame').locator('.slide-object').filter({hasText:'Agent 负责构思'});
  assert.equal(await box().getAttribute('data-coedit-textbox'),'true');

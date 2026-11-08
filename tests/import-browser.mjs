@@ -5,7 +5,7 @@ const page=await browser.newPage({viewport:{width:1500,height:950}});
 const errors=[];page.on('pageerror',e=>errors.push(e.message));
 const html=`<!doctype html><html><head><style>body{font-family:Arial;background:#fff}:root{--ink:#174a73}.slide{background:#eef5ff;padding:40px;width:1280px;height:720px}h1:is(.title,.other){color:var(--ink)}#heading{font-size:54px}</style></head><body><div class="reveal"><div class="slides"><section class="slide past" hidden><h1 id="heading" class="title">Imported first</h1><img src="images/missing.png"></section><section><section class="slide future" hidden><h1 class="other">Imported second</h1></section></section></div></div><script>window.badImport=true;</script></body></html>`;
 try{
- await page.goto('http://127.0.0.1:5173');
+ await page.goto('http://127.0.0.1:5173/?test=1');
  await page.waitForFunction(()=>window.pptAgent?.inspect().pages.length===1);
  await page.click('#open-html');
  await page.setInputFiles('#deck-file',{name:'slides.html',mimeType:'text/html',buffer:Buffer.from(html)});

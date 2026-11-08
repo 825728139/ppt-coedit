@@ -7,7 +7,7 @@ const css = report.cssInputs;
 const ownCss = css['src/style.css'], vendorCss = css['node_modules/grapesjs/dist/css/grapes.min.css'];
 const section = `## 开源项目复用统计
 
-统计时间：${report.generatedAt}。当前实际通过 npm 接入 **GrapesJS、AntV X6、PostCSS、postcss-selector-parser**，未从 clone 的仓库直接复制实现代码。X6 的已安装版本见 package-lock.json。其他已克隆仓库仍为调研参考。
+统计时间：${report.generatedAt}。当前实际通过 npm 接入 **GrapesJS、AntV X6、PostCSS、postcss-selector-parser、parse5**，未从 clone 的仓库直接复制实现代码。X6 的已安装版本见 package-lock.json。其他已克隆仓库仍为调研参考。
 
 ### 占原项目与本项目维护源码的比例
 
@@ -18,7 +18,8 @@ const section = `## 开源项目复用统计
 | GrapesJS | npm 运行入口 + 编辑器 CSS | 0 行 | 0% | 0% |
 | AntV X6 | npm；端点编辑、曲线、折线、SVG 图形 | 0 行 | 0% | 0% |
 | PostCSS / postcss-selector-parser | npm；CSS 解析及选择器改写 | 各 0 行 | 各 0% | 各 0% |
-| GrapesJS WebMCP | 未接入，协作接口由本项目实现 | 0 行 | 0% | 0% |
+| parse5 | npm；HTML 源码位置映射及局部回写 | 0 行 | 0% | 0% |
+| GrapesJS WebMCP | 未接入，改用独立 HTML 文件协作 | 0 行 | 0% | 0% |
 | PPTist | 交互和实现思路参考 | 0 行 | 0% | 0% |
 | Moveable / Selecto | 已 clone，未调用 | 各 0 行 | 各 0% | 各 0% |
 | reveal.js | 仅兼容其 HTML 分页结构，未引入运行代码 | 0 行 | 0% | 0% |

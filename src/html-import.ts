@@ -1,7 +1,7 @@
 import postcss from 'postcss';
 import selectorParser from 'postcss-selector-parser';
 
-export interface ImportedSlide { name: string; html: string; css: string }
+export interface ImportedSlide { name: string; html: string; css: string; sourceKey?: string }
 export interface ImportResult { slides: ImportedSlide[]; warnings: string[] }
 
 /** Scope selectors with an AST so commas inside :is() and attributes stay intact. */
@@ -116,7 +116,7 @@ export async function importHtmlDeck(source: string, assets: File[] = [], source
       }).processSync(rule.selector);
     });
     tree.walkAtRules(rule => { if (/keyframes$/i.test(rule.name)) { warnings.add('已停用导入动画，保留静态内容。'); rule.remove(); } });
-    slides.push({ name: element.querySelector('h1,h2')?.textContent?.trim().slice(0, 40) || `导入页 ${index + 1}`, html: html.outerHTML,
+    slides.push({ sourceKey: element.getAttribute('data-coedit-source') || undefined, name: element.querySelector('h1,h2')?.textContent?.trim().slice(0, 40) || `导入页 ${index + 1}`, html: html.outerHTML,
       css: tree.toString() + '\n.import-html,.import-body{width:100%;height:100%;margin:0}.import-page{display:block!important;visibility:visible!important;opacity:1!important;animation:none!important}.reveal,.reveal .slides{width:100%;height:100%;transform:none!important;position:relative;inset:auto}.reveal .slides>section,.reveal .slides>section>section{position:relative;inset:auto;transform:none!important}' });
   }
   warnings.add('采用 1280×720 画布；不同原始尺寸、复杂定位或脚本布局可能需要手动调整。');

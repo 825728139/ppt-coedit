@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 const browser=await chromium.launch();const page=await browser.newPage({viewport:{width:1600,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
 async function selectText(value,start,end){await page.locator('#rich-text-content').evaluate((root,{value,start,end})=>{const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let node;while(node=walker.nextNode())if(node.textContent.includes(value)){const r=document.createRange();r.setStart(node,start);r.setEnd(node,end);const s=getSelection();s.removeAllRanges();s.addRange(r);root.dispatchEvent(new Event('mouseup',{bubbles:true}));document.dispatchEvent(new Event('selectionchange'));return;}throw Error('text not found')},{value,start,end});}
 try{
- await page.goto('http://127.0.0.1:5173');await page.waitForFunction(()=>window.pptAgent?.inspect().pages.length);
+ await page.goto('http://127.0.0.1:5173/?test=1');await page.waitForFunction(()=>window.pptAgent?.inspect().pages.length);
  await page.click('#add-text');const first=await page.evaluate(()=>window.pptAgent.inspect().selection[0]);
  await page.click('#add-text');const second=await page.evaluate(()=>window.pptAgent.inspect().selection[0]);
  await page.evaluate(({first,second})=>{const a=window.pptAgent,s=a.inspect();a.apply({baseRevision:s.revision,requestId:'setup',patches:[{id:first,text:'甲乙丙丁'},{id:second,text:'另一个文本框',style:{top:'500px'}}]})},{first,second});

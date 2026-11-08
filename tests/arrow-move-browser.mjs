@@ -8,7 +8,7 @@ async function move(id,dx,dy){
  await page.mouse.move(p.x,p.y);await page.mouse.down();await page.mouse.move(p.x+dx,p.y+dy,{steps:8});await page.mouse.up();await page.waitForTimeout(120);
 }
 try{
- await page.goto('http://127.0.0.1:5173');await page.waitForFunction(()=>window.pptAgent?.inspect().pages.length);
+ await page.goto('http://127.0.0.1:5173/?test=1');await page.waitForFunction(()=>window.pptAgent?.inspect().pages.length);
  await page.click('#insert-arrow');await page.selectOption('#arrow-kind','curve');await page.click('#arrow-done');
  const original=(await data()).cells[0];
  await move(original.id,30,25);

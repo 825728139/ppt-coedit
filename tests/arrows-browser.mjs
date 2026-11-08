@@ -5,7 +5,7 @@ const errors=[];page.on('pageerror',e=>errors.push(e.message));
 const data=()=>page.frameLocator('.gjs-frame').locator('[data-coedit-diagram]').getAttribute('data-coedit-edges').then(JSON.parse);
 const selectEdge = async () => { const point = await page.locator('.arrow-canvas .x6-edge path[stroke="transparent"]').evaluate(path => { const point = path.getPointAtLength(path.getTotalLength()/2).matrixTransform(path.getScreenCTM()); return {x:point.x,y:point.y}; }); await page.mouse.click(point.x, point.y); };
 try{
- await page.goto('http://127.0.0.1:5173');await page.waitForFunction(()=>window.pptAgent?.inspect().pages.length);
+ await page.goto('http://127.0.0.1:5173/?test=1');await page.waitForFunction(()=>window.pptAgent?.inspect().pages.length);
  await page.click('#insert-arrow');
  await page.locator('.x6-edge-tool-source-arrowhead').waitFor();
  let original=await data();assert.equal(original.cells.length,1);

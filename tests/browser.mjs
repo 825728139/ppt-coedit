@@ -4,7 +4,7 @@ const browser = await chromium.launch({headless:true});
 const page = await browser.newPage({viewport:{width:1500,height:950}});
 const errors=[]; page.on('pageerror', e=>errors.push(e.message));
 try {
-  await page.goto('http://127.0.0.1:5173');
+  await page.goto('http://127.0.0.1:5173/?test=1');
   await page.waitForFunction(()=>window.pptAgent?.inspect().pages.length>0);
   await page.getByText('已保存到本机',{exact:true}).waitFor();
   await page.click('#add-text');

@@ -7,11 +7,13 @@ import { installEditingTools } from './editing-tools';
 import { installArrows } from './arrows';
 import { installTextFormat } from './text-format';
 import { descendants, slideRoot } from './component-tree';
+import { SourceDocument } from './source-document';
+import { installFileSession } from './file-session';
 
 document.querySelector('#app')!.innerHTML = `
 <header><div class="brand">◈ 共页 <small>COEDIT / LAB</small></div><div class="document">人机协同演示文稿 <span id="status">准备中</span></div><button id="open-html"></button><button id="export">导出 HTML</button><button id="present" class="primary">▶ 放映</button></header>
 <nav><div><button id="add-page">＋ 新建页面</button><button id="add-text">T 文字</button><button id="add-card">▣ 卡片</button><button id="add-image">▧ 图片</button></div><div><button id="undo">↶ 撤销</button><button id="redo">↷ 重做</button><button id="save">保存</button><label>缩放 <select id="zoom"><option>40</option><option selected>50</option><option>75</option><option>100</option></select>%</label></div></nav>
-<main><aside class="slides"><div class="section-label">幻灯片 <span id="count"></span></div><div id="pages"></div><p class="hint">单击选择对象，双击编辑文字。<br>卡片内部使用 HTML/CSS 排版。</p></aside><section class="workspace"><div id="editor"></div></section><aside class="inspector"><div class="tabs"><button data-panel="design" class="active">设计</button><button data-panel="agent">Agent</button></div><section id="design"><div class="section-label">当前对象</div><p id="selected">请选择画布中的元素</p><button id="lock">锁定 / 解锁</button><button id="delete-object">删除对象</button><div class="section-label">样式属性</div><div id="styles"></div><div class="section-label">图层</div><div id="layers"></div></section><section id="agent" hidden><h3>让人和 Agent 编辑同一页</h3><p class="hint">当前提供结构化事务接口，尚未连接大模型。选中对象后生成示例，或直接粘贴事务。</p><button id="example">生成选中对象示例</button><textarea id="transaction" spellcheck="false" placeholder="选择一个文字对象后生成示例"></textarea><button id="apply" class="primary">应用局部修改</button><pre id="result">window.pptAgent.inspect()\nwindow.pptAgent.apply(transaction)</pre><hr><div class="section-label">导入 HTML / CSS</div><p class="hint">导入为新页面；内容经过 GrapesJS 解析，不执行脚本。</p><textarea id="html-input" placeholder="<h1>我的新页面</h1>"></textarea><textarea id="css-input" placeholder="h1 { color: #2563eb; }"></textarea><button id="import-html">导入新页</button></section></aside></main><footer><span>HTML / CSS 原生编辑</span><span id="revision">revision 0</span><span>1280 × 720 · 本地自动保存</span></footer><dialog id="import-dialog"></dialog><dialog id="player"><button id="close-player">退出放映 ×</button><iframe id="player-frame" title="幻灯片放映"></iframe></dialog>`;
+<main><aside class="slides"><div class="section-label">幻灯片 <span id="count"></span></div><div id="pages"></div><p class="hint">单击选择对象，双击编辑文字。<br>卡片内部使用 HTML/CSS 排版。</p></aside><section class="workspace"><div id="editor"></div></section><aside class="inspector"><div class="tabs"><button data-panel="design" class="active">设计</button><button data-panel="agent">HTML 片段</button></div><section id="design"><div class="section-label">当前对象</div><p id="selected">请选择画布中的元素</p><button id="lock">锁定 / 解锁</button><button id="delete-object">删除对象</button><div class="section-label">样式属性</div><div id="styles"></div><div class="section-label">图层</div><div id="layers"></div></section><section id="agent" hidden><pre id="result"></pre><div class="section-label">导入 HTML / CSS</div><p class="hint">导入为新页面；内容经过 GrapesJS 解析，不执行脚本。</p><textarea id="html-input" placeholder="<h1>我的新页面</h1>"></textarea><textarea id="css-input" placeholder="h1 { color: #2563eb; }"></textarea><button id="import-html">导入新页</button></section></aside></main><footer><span>HTML / CSS 原生编辑</span><span id="revision">revision 0</span><span>1280 × 720 · 本地自动保存</span></footer><dialog id="import-dialog"></dialog><dialog id="player"><button id="close-player">退出放映 ×</button><iframe id="player-frame" title="幻灯片放映"></iframe></dialog>`;
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const workspace = document.querySelector<HTMLElement>('.workspace')!;
@@ -55,6 +57,7 @@ editor.DomComponents.addType('slide-root', { isComponent: el => el.classList?.co
 
 let revision = 0, muted = true, timer: ReturnType<typeof setTimeout>;
 let history: string[] = [], cursor = -1;
+let sourceDocument: SourceDocument | undefined;
 const requests = new Map<string, { fingerprint: string; result: { revision: number } }>();
 const storageKey = 'ppt-coedit-v1';
 const snapshot = () => JSON.stringify({ project: editor.getProjectData(), selectedPageId: editor.Pages.getSelected()?.getId() });
@@ -98,7 +101,8 @@ const api = {
     const result = { revision }; requests.set(transaction.requestId, {fingerprint,result}); return result;
   },
 };
-(window as unknown as { pptAgent: typeof api }).pptAgent = api;
+// Temporary regression harness only. Production has no Agent/LLM connection surface.
+if(new URLSearchParams(location.search).has('test')) (window as unknown as { pptAgent: typeof api }).pptAgent = api;
 installEditingTools(editor, batch);
 installTextFormat(editor, batch);
 installArrows(editor, batch);
@@ -111,7 +115,7 @@ $('add-page').onclick = () => batch(() => addPage());
 $('add-text').onclick = () => addObject('<div class="slide-object" style="left:100px;top:180px;width:600px;height:90px;font-size:40px">双击编辑文字</div>');
 $('add-card').onclick = () => addObject('<article class="slide-object card" style="left:130px;top:240px;width:480px;height:260px"><h2>一个值得分享的想法</h2><p>这是可编辑的 HTML 卡片。外层自由定位，内部保持流式排版。</p></article>');
 $('add-image').onclick = () => { const destination = currentRoot(); const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.onchange = () => { const file = input.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => addObject(`<img class="slide-object" src="${reader.result}" style="left:180px;top:150px;width:480px;height:320px;object-fit:contain">`, destination); reader.readAsDataURL(file); }; input.click(); };
-$('save').onclick = async () => { await flushTextEditing(); commit(); };
+$('save').onclick = async () => { await fileSession.save(); };
 for (const [id, delta] of [['undo', -1], ['redo', 1]] as const) $(id).onclick = () => { commit(); const next = cursor + delta; if (next < 0 || next >= history.length) return; muted = true; restoreSnapshot(history[next]); muted = false; cursor = next; history[cursor] = snapshot(); revision++; persist(); renderPages(); };
 $('zoom').onchange = () => setPreviewZoom(Number($<HTMLSelectElement>('zoom').value));
 $('zoom-out').onclick = () => setPreviewZoom(editor.Canvas.getZoom() - 10);
@@ -121,11 +125,9 @@ $('zoom-fit').onclick = () => setPreviewZoom(Math.floor(Math.min((workspace.clie
 $('lock').onclick = () => { const c = editor.getSelected(); if (c && c.getClasses().includes('slide-object')) batch(() => { const locked = !c.get('coeditLocked'); c.set({ coeditLocked: locked, draggable: !locked, resizable: !locked, removable: !locked, editable: !locked }); selectInfo(); }); };
 $('delete-object').onclick = () => { const c = editor.getSelected(); if (c && c.get('removable') && !c.get('coeditLocked')) batch(() => { c.remove(); }); };
 document.querySelectorAll<HTMLButtonElement>('[data-panel]').forEach(b => b.onclick = () => { for (const id of ['design', 'agent']) $(id).hidden = id !== b.dataset.panel; document.querySelectorAll('[data-panel]').forEach(x => x.classList.toggle('active', x === b)); });
-$('example').onclick = () => { const c = editor.getSelected(); if (!c) { $('result').textContent = '请先选中文字对象'; return; } $<HTMLTextAreaElement>('transaction').value = JSON.stringify({ baseRevision: revision, requestId: crypto.randomUUID(), patches: [{ id: c.getId(), text: '让创作更进一步', style: { color: '#26756d' } }] }, null, 2); };
-$('apply').onclick = () => { try { $('result').textContent = JSON.stringify(api.apply(JSON.parse($<HTMLTextAreaElement>('transaction').value)), null, 2); } catch (e) { $('result').textContent = String(e); } };
 $('import-html').onclick = () => { try { batch(() => addPage($<HTMLTextAreaElement>('html-input').value, $<HTMLTextAreaElement>('css-input').value)); $('result').textContent = '已导入新页面'; } catch (e) { $('result').textContent = String(e); } };
 function presentation() { const slides = editor.Pages.getAll().map(p => { const c = slideRoot(p.getMainComponent()) || p.getMainComponent(); return { html: new DOMParser().parseFromString(c.toHTML(), 'text/html').body.innerHTML, css: editor.getCss({ component: c }) }; }); return `<!doctype html><html><head><meta charset="utf-8"><title>共页演示</title><style>body{margin:0;background:#15292b}.frame{position:absolute;width:1280px;height:720px;left:50%;top:50%;transform-origin:center}.frame[hidden]{display:none}</style></head><body>${slides.map((s,i) => `<div class="frame" ${i ? 'hidden' : ''}><style>${s.css}</style>${s.html}</div>`).join('')}<script>const slides=[...document.querySelectorAll('.frame')];let i=0;function fit(){slides.forEach(s=>s.style.transform='translate(-50%,-50%) scale('+Math.min(innerWidth/1280,innerHeight/720)+')')}onresize=fit;fit();onkeydown=e=>{if(['ArrowRight',' ','ArrowLeft'].includes(e.key)){e.preventDefault();slides[i].hidden=true;i=(i+(e.key==='ArrowLeft'?-1:1)+slides.length)%slides.length;slides[i].hidden=false}};<\/script></body></html>`; }
-$('export').onclick = async () => { await flushTextEditing(); commit(); const url = URL.createObjectURL(new Blob([presentation()], { type: 'text/html' })); const a = document.createElement('a'); a.href = url; a.download = '共页演示.html'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); };
+$('export').onclick = async () => { await flushTextEditing(); commit(); const url = URL.createObjectURL(new Blob([sourceDocument?.render(editor) ?? presentation()], { type: 'text/html' })); const a = document.createElement('a'); a.href = url; a.download = '共页演示.html'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); };
 $('present').onclick = async () => { await flushTextEditing(); commit(); $<HTMLIFrameElement>('player-frame').srcdoc = presentation(); $<HTMLDialogElement>('player').showModal(); $<HTMLIFrameElement>('player-frame').focus(); };
 $('close-player').onclick = () => $<HTMLDialogElement>('player').close();
 
@@ -145,3 +147,35 @@ $('confirm-import').onclick = async () => {
   } catch (error) { $('import-summary').textContent = `导入失败，原文稿已保留：${String(error)}`; }
   finally { button.disabled = false; }
 };
+
+async function loadSource(source: string) {
+  const document = new SourceDocument(source), result = await importHtmlDeck(document.preparedHtml());
+  const selectedIndex=Math.max(0,editor.Pages.getAll().indexOf(editor.Pages.getSelected()!));
+  const before = snapshot(); muted = true;
+  try {
+    [...editor.Pages.getAll()].forEach(page=>editor.Pages.remove(page));
+    for(const slide of result.slides) { addPage(slide.html,slide.css); editor.Pages.getSelected()!.set({name:slide.name,coeditSourceRoot:slide.sourceKey}); }
+    editor.Pages.select(editor.Pages.getAll()[Math.min(selectedIndex,result.slides.length-1)]);
+    document.capture(editor); sourceDocument=document;
+  }catch(error){restoreSnapshot(before);throw error}finally{muted=false}
+  revision++;history=[];cursor=-1;requests.clear();commit();
+}
+const fileSession = installFileSession({
+  load:loadSource,
+  render:()=>sourceDocument?.render(editor) ?? presentation(),
+  editing:()=>editor.getModel().isEditing() || $<HTMLDialogElement>('text-format-dialog').open,
+  flush:async()=>{if($<HTMLDialogElement>('text-format-dialog').open)throw new Error('请先保存或关闭文字编辑窗口。');await flushTextEditing();commit()},
+});
+$('save').textContent='保存源文件';
+$('open-html').textContent='导入副本';
+document.querySelector('[data-panel="agent"]')!.textContent='HTML 片段';
+const fragmentPanel=$('agent'), fragmentHeading=document.createElement('h3'), fragmentHint=document.createElement('p');
+fragmentHeading.textContent='导入 HTML / CSS 片段';fragmentHint.className='hint';fragmentHint.textContent='仅在编辑器内追加页面；点击“保存源文件”后写回磁盘。';
+fragmentPanel.replaceChildren(fragmentHeading,fragmentHint,$('html-input'),$('css-input'),$('import-html'),$('result'));
+$('result').textContent='';
+document.querySelector('footer span:last-child')!.textContent='1280 × 720 · HTML 文件协作';
+const saveShortcut=(event:KeyboardEvent)=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){event.preventDefault();void fileSession.save()}};
+document.addEventListener('keydown',saveShortcut,true);
+const shortcutDocuments=new WeakSet<Document>();
+editor.on('load canvas:frame:load canvas:frame:load:body page:select',()=>requestAnimationFrame(()=>{const doc=editor.Canvas.getDocument();if(doc&&!shortcutDocuments.has(doc)){doc.addEventListener('keydown',saveShortcut,true);shortcutDocuments.add(doc)}}));
+editor.on('destroy',()=>{fileSession.dispose();document.removeEventListener('keydown',saveShortcut,true)});

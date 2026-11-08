@@ -2,7 +2,7 @@ import {chromium} from '@playwright/test';
 import assert from 'node:assert/strict';
 const browser=await chromium.launch();const page=await browser.newPage({viewport:{width:1600,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
 try{
- await page.goto('http://127.0.0.1:5173');await page.waitForFunction(()=>window.pptAgent?.inspect().pages.length);
+ await page.goto('http://127.0.0.1:5173/?test=1');await page.waitForFunction(()=>window.pptAgent?.inspect().pages.length);
  // Round 1: malformed requests, idempotency collisions and active-text conflicts.
  await page.click('#add-text');const id=await page.evaluate(()=>window.pptAgent.inspect().selection[0]);
  const protocol=await page.evaluate(id=>{const api=window.pptAgent,s=api.inspect();const tx={baseRevision:s.revision,requestId:'review',patches:[{id,text:'review base'}]};api.apply(tx);const errors=[];for(const value of [null,{...tx,patches:[{id,text:'different'}]}])try{api.apply(value)}catch(e){errors.push(e.message)}return errors},id);

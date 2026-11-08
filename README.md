@@ -1,6 +1,6 @@
 ﻿# 共页 · PPT Coedit
 
-基于 GrapesJS 0.23.9 的可运行原型。使用 TypeScript + Vite 搭建首版外壳，先验证编辑和协作模型；暂未引入 React、外部模型或 HTML-in-Canvas。
+HTML PPT 可视化微调工具，基于 GrapesJS、TypeScript 和 Vite。Codex / OpenCode 独立生成和修改 HTML，编辑器打开同一文件供人工调整；双方只通过磁盘 HTML 协作，不接模型 API，也不建设 Agent 服务。
 
 ## 启动
 
@@ -18,8 +18,8 @@ npm run dev
 
 - 多页创建、切换、删除，固定 1280×720 画布与缩放。
 - 新增文字、卡片和本地图片，选择、拖动、缩放、样式面板和图层。
-- 对象锁定与 Agent 锁检查；局部文本及样式修改。
-- 单调 revision、过期请求拒绝、requestId 会话内幂等。
+- 对象锁定、局部文本及样式修改。
+- 原文件读写、外部 HTML 变化自动重新加载。
 - 统一快照撤销/重做按钮、本地自动保存及刷新恢复。
 - HTML/CSS 导入为新页、独立 HTML 导出与翻页放映。
 
@@ -46,7 +46,7 @@ npm run dev
 
 选中文本框后点击「精细文字编辑」，可选择「整个文本框」「当前段落」「选中文字」三个范围。在编辑窗口里拖选一个字或一段文字后，可调整字体、字号、颜色、加粗和字距；选择当前段落可设置行高、段后距、左对齐、居中或右对齐。文字选区在点击工具按钮或输入字号时会保留。
 
-行高、段后距和对齐属于段落属性；即使选中单字，这三项也作用于所在段落。保存时只更新打开的这个文本框，并作为一次可撤销操作；取消不写回。若原文本框被 Agent 等操作改动，保存会拒绝覆盖，需重新打开。精细格式当前在独立编辑窗口内操作，画布内仍可双击进行基本文字修改。
+行高、段后距和对齐属于段落属性；即使选中单字，这三项也作用于所在段落。保存时只更新打开的这个文本框，并作为一次可撤销操作；取消不写回。若原文本框在编辑期间被其他操作改动，需重新打开精细编辑窗口。精细格式当前在独立编辑窗口内操作，画布内仍可双击进行基本文字修改。
 
 保存精细文字时会归一化行内格式：合并相邻的相同样式、清理冗余嵌套，取消加粗后不保留无意义的加粗/普通样式套层。格式片段不作为独立画布对象或图层，整个文本框仍可统一选择和移动。旧文稿中已经产生的冗余行内格式，可选中外层文本框，打开「精细文字编辑」后保存一次进行整理；段落、链接和非文字对象的结构会保留。
 
@@ -56,28 +56,28 @@ npm run dev
 
 ## 打开已有 HTML PPT 文件
 
-点击顶部 **打开 HTML PPT**，选择 `.html` 文件；如果图片、CSS 或字体是相对路径，再选择包含它们的资源文件夹。点击 **导入页面**，页面会追加到当前文稿，整次导入可以撤销。
+点击顶部 **导入副本**，选择 `.html` 文件；如果图片、CSS 或字体是相对路径，再选择包含它们的资源文件夹。点击 **导入页面**，页面会追加到当前文稿，整次导入可以撤销。
 
-支持识别 reveal.js 的水平/垂直 section、`.slide-root`、`.slide`、`[data-slide]` 和 body 下的 section；未发现分页则作为单页。导入后保留 DOM，可双击编辑标题，也可由 Agent 局部改稿。每页 CSS 限定作用范围，导入对象 ID 重新命名以避免和已有文稿冲突。
+支持识别 reveal.js 的水平/垂直 section、`.slide-root`、`.slide`、`[data-slide]` 和 body 下的 section；未发现分页则作为单页。导入后保留 DOM，可双击编辑标题，保存后也可交给 Codex / OpenCode 修改文件。每页 CSS 限定作用范围，导入对象 ID 重新命名以避免和已有文稿冲突。
 
 本地图片、CSS 和字体文件会尽量内嵌。缺失的本地资源、未加载的外部样式表和脚本依赖会显示在导入报告中；不会自动执行来源文件中的 JavaScript。远程图片等 URL 仍依赖网络。使用 1280×720 画布，依赖运行时脚本的内容或不同尺寸的布局需要人工调整。
 
 本会话预览地址：http://127.0.0.1:5173 。如受限环境中 Vite 开发依赖预打包遇到目录权限问题，可运行 `npm run build`，再运行 `npm run preview -- --port 5173` 使用构建预览。
 
-## Agent 接口
+## 独立文件协作（推荐）
 
-打开右侧 Agent 页签，可生成并应用选中对象的示例事务。也可从页面脚本调用：
+1. Codex / OpenCode 直接生成或修改磁盘上的 HTML PPT。
+2. 用 Chrome / Edge 打开本工具，点击 **打开并同步 HTML**，选择同一份文件。
+3. 人工调整文字、图片、样式或箭头，点击 **保存源文件** 或 Ctrl/Cmd+S 写回原文件。
+4. 让 Codex 自行读取文件或 git diff 后继续修改；页面每 500ms 检查文件变化并自动重新加载，保留当前页码。
 
-```js
-const state = window.pptAgent.inspect();
-window.pptAgent.apply({
-  baseRevision: state.revision,
-  requestId: crypto.randomUUID(),
-  patches: [{ id: state.selection[0], text: '新标题', style: { color: '#2563eb' } }],
-});
-```
+不提供冲突处理或自动合并。外部文件一旦变化，会替换编辑器当前内容，包括尚未保存的人工调整；按“Agent 改完 → 人工调整并保存 → Agent 继续”的顺序使用。
 
-修改真实 GrapesJS 模型，手工编辑和 Agent 修改共用历史。所有目标及锁先校验再提交，发生异常恢复事务前快照。外部 MCP/HTTP 桥接尚未实现，不能直接从远程调用该页面对象。
+HTML 文件是协作的唯一权威内容。无改动保存保持源码完全一致；有改动尽量只回写涉及的属性和内容，保留原有 ID、CSS、脚本与未改部分，方便 Agent 阅读差异。打开/重载文件会重置编辑历史；本机草稿自动保存不等于写回 HTML，刷新后需要重新选择源文件。复杂结构的编辑可能扩大源码改动范围，不承诺任意网页无损往返。
+
+原文件脚本会保留在磁盘，但不会在编辑画布执行；因此依赖脚本生成的图表、复杂动画或相对路径资源可能与浏览器直接打开原文稿不同。自包含 HTML 最适合当前工作流。文件直读写使用浏览器 File System Access API，需要 Chrome / Edge 及 localhost/HTTPS；其他浏览器可使用导入副本和导出 HTML。加载资源提示与调研方向见 [FILE_WORKFLOW.md](./FILE_WORKFLOW.md)。
+
+原来的结构化事务仅保留为回归测试辅助，必须显式通过 ?test=1 启用；正常页面没有 window.pptAgent 或 Agent 面板，不作为产品集成协议。
 
 ## 验证
 
@@ -88,6 +88,7 @@ npm test
 npm run build
 $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path (Split-Path (Get-Location) -Parent) '.cache/playwright'
 # 保持 npm run dev 在另一终端运行
+node tests/file-workflow-browser.mjs
 node tests/browser.mjs
 node tests/import-browser.mjs
 node tests/editing-browser.mjs
@@ -107,18 +108,18 @@ node tests/review-browser.mjs
 
 - 当前页面列表是文字列表，尚未实现真实缩略图、排序和页面复制。
 - 富文本、复杂嵌套布局、中文输入法及拖动手势的历史分组仍需专项验证；撤销以按钮操作为准，暂未统一 iframe 内的快捷键。
-- 锁主要限制对象几何操作及 Agent 写入；后代的人工文字/样式编辑还需补齐严格锁策略。
+- 锁主要限制对象几何操作；后代的人工文字/样式编辑还需补齐严格锁策略。
 - CSS 选择器使用语法树处理，支持含逗号的 :is() 等选择器及分组规则；文件导入停用动画并提示。复杂 CSS 嵌套、SVG 内部引用及脚本布局仍需专项适配，不承诺任意网页 HTML/CSS 无损导入。
 - 文本 patch 限于没有结构子元素的文字对象，避免替换整个卡片结构。修改含多段富文本的对象应后续增加精确文本命令。
 - 工程使用 localStorage 与图片 data URL，适合验证；后续迁移到 IndexedDB + Blob。存储失败会显示状态。历史只在本次会话保留，刷新恢复内容不恢复历史。
 - 快照历史暂不限制长度，后续增加容量控制。复杂大文稿尚未做性能基准。
-- PDF、可编辑 PPTX、多人协作、稳定的外部 Agent 工具桥接尚未实现。
+- PDF、可编辑 PPTX 和多人在线协作尚未实现；外部 Agent 工具桥接不在项目目标内。
 
-下一阶段优先实现：严格的自由/流式布局契约、手势事务与锁策略、IndexedDB 存储、页面缩略图与排序，然后接外部 Agent 桥接。
+下一阶段优先实现：源文件往返保真、外部资源加载、页面缩略图与排序、自由/流式布局契约与手势事务。不再建设外部 Agent 桥接。
 
 ## 开源项目复用统计
 
-统计时间：2026-11-08T12:03:29.626Z。当前实际通过 npm 接入 **GrapesJS、AntV X6、PostCSS、postcss-selector-parser**，未从 clone 的仓库直接复制实现代码。X6 的已安装版本见 package-lock.json。其他已克隆仓库仍为调研参考。
+统计时间：2026-11-08T12:39:26.668Z。当前实际通过 npm 接入 **GrapesJS、AntV X6、PostCSS、postcss-selector-parser、parse5**，未从 clone 的仓库直接复制实现代码。X6 的已安装版本见 package-lock.json。其他已克隆仓库仍为调研参考。
 
 ### 占原项目与本项目维护源码的比例
 
@@ -129,7 +130,8 @@ node tests/review-browser.mjs
 | GrapesJS | npm 运行入口 + 编辑器 CSS | 0 行 | 0% | 0% |
 | AntV X6 | npm；端点编辑、曲线、折线、SVG 图形 | 0 行 | 0% | 0% |
 | PostCSS / postcss-selector-parser | npm；CSS 解析及选择器改写 | 各 0 行 | 各 0% | 各 0% |
-| GrapesJS WebMCP | 未接入，协作接口由本项目实现 | 0 行 | 0% | 0% |
+| parse5 | npm；HTML 源码位置映射及局部回写 | 0 行 | 0% | 0% |
+| GrapesJS WebMCP | 未接入，改用独立 HTML 文件协作 | 0 行 | 0% | 0% |
 | PPTist | 交互和实现思路参考 | 0 行 | 0% | 0% |
 | Moveable / Selecto | 已 clone，未调用 | 各 0 行 | 各 0% | 各 0% |
 | reveal.js | 仅兼容其 HTML 分页结构，未引入运行代码 | 0 行 | 0% | 0% |
@@ -138,33 +140,35 @@ node tests/review-browser.mjs
 
 这不表示 GrapesJS/X6 没有被使用。对于 npm 依赖，**使用了原仓库整体多少源码或多少执行路径，目前未测覆盖率**；不会把引入入口写成“使用整个原项目 100%”。仓库还包含测试、工具和文档，不能以 API 调用数量推断源码覆盖率。
 
-本项目维护的运行源码（src + index.html）共 **10 个文件、663 个非空物理行、74,019 UTF-8 字节**。不含测试、配置、脚本、文档、node_modules 和 dist；紧凑排版下行数不代表开发工作量。
+本项目维护的运行源码（src + index.html）共 **12 个文件、907 个非空物理行、92,687 UTF-8 字节**。不含测试、配置、脚本、文档、node_modules 和 dist；紧凑排版下行数不代表开发工作量。
 
 ### 占当前应用运行时 JavaScript 的比例
 
-分母为 Rollup renderedLength 合计 **4,633,903 个字符**，即 tree-shaking 后、最终 chunk 压缩前的模块代码量。不是下载体积、gzip 大小、执行覆盖率、功能贡献或开发投入占比。CommonJS 辅助模块按来源包归属；GrapesJS 发布文件内自带的依赖未再细分。
+分母为 Rollup renderedLength 合计 **5,023,775 个字符**，即 tree-shaking 后、最终 chunk 压缩前的模块代码量。不是下载体积、gzip 大小、执行覆盖率、功能贡献或开发投入占比。CommonJS 辅助模块按来源包归属；GrapesJS 发布文件内自带的依赖未再细分。
 
 | 来源 | 构建 JS 字符数 | 占当前运行时 JS |
 | --- | ---: | ---: |
-| grapesjs | 2,771,908 | 59.818% |
-| @antv/x6 | 1,254,793 | 27.079% |
-| lodash-es | 178,023 | 3.842% |
-| postcss-selector-parser | 155,635 | 3.359% |
-| postcss | 128,045 | 2.763% |
-| application | 61,779 | 1.333% |
-| mousetrap | 35,845 | 0.774% |
-| dom-align | 35,718 | 0.771% |
-| cssesc | 3,690 | 0.080% |
-| tslib | 2,688 | 0.058% |
-| vite-runtime | 2,353 | 0.051% |
-| util-deprecate | 1,832 | 0.040% |
-| picocolors | 885 | 0.019% |
-| nanoid | 709 | 0.015% |
+| grapesjs | 2,771,914 | 55.176% |
+| @antv/x6 | 1,254,817 | 24.978% |
+| parse5 | 314,061 | 6.251% |
+| lodash-es | 178,025 | 3.544% |
+| postcss-selector-parser | 155,635 | 3.098% |
+| postcss | 128,045 | 2.549% |
+| application | 78,502 | 1.563% |
+| entities | 59,056 | 1.176% |
+| mousetrap | 35,845 | 0.714% |
+| dom-align | 35,718 | 0.711% |
+| cssesc | 3,690 | 0.073% |
+| tslib | 2,688 | 0.054% |
+| vite-runtime | 2,353 | 0.047% |
+| util-deprecate | 1,832 | 0.036% |
+| picocolors | 885 | 0.018% |
+| nanoid | 709 | 0.014% |
 | WebMCP、PPTist、Moveable、Selecto、reveal.js、slide-editor、PptxGenJS、Scena、Slidev、Yjs | 各 0 | 各 0% |
 
 四舍五入可能导致合计略有误差。TypeScript、Vite 构建器和 Playwright 测试框架不计入浏览器运行代码，Vite 的浏览器辅助代码单独列出。
 
-CSS 按两份输入文件单独统计：GrapesJS 样式 **61,053 字节，89.72%**；本项目样式 **6,993 字节，10.28%**。X6 在 JS 内注入的样式随其 JS 统计，此处不是全部最终样式的逐来源占比。
+CSS 按两份输入文件单独统计：GrapesJS 样式 **61,053 字节，89.13%**；本项目样式 **7,445 字节，10.87%**。X6 在 JS 内注入的样式随其 JS 统计，此处不是全部最终样式的逐来源占比。
 
 原始数据：[reuse-audit.json](./reuse-audit.json)。重跑并更新本节：
 

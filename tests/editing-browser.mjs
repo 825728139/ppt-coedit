@@ -4,7 +4,7 @@ const browser=await chromium.launch();
 const page=await browser.newPage({viewport:{width:1500,height:950}});
 const errors=[];page.on('pageerror',e=>errors.push(e.message));
 try{
- await page.goto('http://127.0.0.1:5173');await page.waitForFunction(()=>window.pptAgent?.inspect().pages.length);
+ await page.goto('http://127.0.0.1:5173/?test=1');await page.waitForFunction(()=>window.pptAgent?.inspect().pages.length);
  await page.click('#add-text');
  const frame=()=>page.frameLocator('.gjs-frame');
  const text=()=>frame().getByText('双击编辑文字',{exact:true});
