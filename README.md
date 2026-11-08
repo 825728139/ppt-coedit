@@ -50,6 +50,8 @@ npm run dev
 
 保存精细文字时会归一化行内格式：合并相邻的相同样式、清理冗余嵌套，取消加粗后不保留无意义的加粗/普通样式套层。格式片段不作为独立画布对象或图层，整个文本框仍可统一选择和移动。旧文稿中已经产生的冗余行内格式，可选中外层文本框，打开「精细文字编辑」后保存一次进行整理；段落、链接和非文字对象的结构会保留。
 
+画布内直接双击编辑文字的路径也在结束编辑后归一化格式；新建、导入及旧工程恢复的 slide-text 文本框都会建立整体选择标记。导出仅输出页面内容，避免把编辑器的 body 包装嵌入已有 body。对应旧版导出回归样本位于 tests/fixtures/legacy-export.html。
+
 当前微调按一次按键记一条撤销记录，长按合并为一个手势事务尚未实现。
 
 ## 打开已有 HTML PPT 文件
@@ -91,6 +93,7 @@ node tests/arrows-browser.mjs
 node tests/arrow-move-browser.mjs
 node tests/text-format-browser.mjs
 node tests/text-normalize-browser.mjs
+node tests/legacy-text-browser.mjs
 ```
 
 浏览器闭环覆盖对象创建、Agent 修改、重复请求、版本冲突、撤销重做、刷新恢复、页面和放映。测试在独立浏览器上下文内执行，不改日常浏览器存档；截图输出 preview.png。
@@ -112,7 +115,7 @@ node tests/text-normalize-browser.mjs
 
 ## 开源项目复用统计
 
-统计时间：2026-11-08T11:34:58.193Z。当前实际通过 npm 接入 **GrapesJS、AntV X6、PostCSS、postcss-selector-parser**，未从 clone 的仓库直接复制实现代码。X6 的已安装版本见 package-lock.json。其他已克隆仓库仍为调研参考。
+统计时间：2026-11-08T11:50:21.819Z。当前实际通过 npm 接入 **GrapesJS、AntV X6、PostCSS、postcss-selector-parser**，未从 clone 的仓库直接复制实现代码。X6 的已安装版本见 package-lock.json。其他已克隆仓库仍为调研参考。
 
 ### 占原项目与本项目维护源码的比例
 
@@ -132,20 +135,20 @@ node tests/text-normalize-browser.mjs
 
 这不表示 GrapesJS/X6 没有被使用。对于 npm 依赖，**使用了原仓库整体多少源码或多少执行路径，目前未测覆盖率**；不会把引入入口写成“使用整个原项目 100%”。仓库还包含测试、工具和文档，不能以 API 调用数量推断源码覆盖率。
 
-本项目维护的运行源码（src + index.html）共 **9 个文件、604 个非空物理行、69,230 UTF-8 字节**。不含测试、配置、脚本、文档、node_modules 和 dist；紧凑排版下行数不代表开发工作量。
+本项目维护的运行源码（src + index.html）共 **9 个文件、619 个非空物理行、70,225 UTF-8 字节**。不含测试、配置、脚本、文档、node_modules 和 dist；紧凑排版下行数不代表开发工作量。
 
 ### 占当前应用运行时 JavaScript 的比例
 
-分母为 Rollup renderedLength 合计 **4,629,848 个字符**，即 tree-shaking 后、最终 chunk 压缩前的模块代码量。不是下载体积、gzip 大小、执行覆盖率、功能贡献或开发投入占比。CommonJS 辅助模块按来源包归属；GrapesJS 发布文件内自带的依赖未再细分。
+分母为 Rollup renderedLength 合计 **4,630,654 个字符**，即 tree-shaking 后、最终 chunk 压缩前的模块代码量。不是下载体积、gzip 大小、执行覆盖率、功能贡献或开发投入占比。CommonJS 辅助模块按来源包归属；GrapesJS 发布文件内自带的依赖未再细分。
 
 | 来源 | 构建 JS 字符数 | 占当前运行时 JS |
 | --- | ---: | ---: |
-| grapesjs | 2,771,908 | 59.870% |
-| @antv/x6 | 1,254,793 | 27.102% |
-| lodash-es | 178,023 | 3.845% |
-| postcss-selector-parser | 155,635 | 3.362% |
-| postcss | 128,045 | 2.766% |
-| application | 57,724 | 1.247% |
+| grapesjs | 2,771,908 | 59.860% |
+| @antv/x6 | 1,254,793 | 27.098% |
+| lodash-es | 178,023 | 3.844% |
+| postcss-selector-parser | 155,635 | 3.361% |
+| postcss | 128,045 | 2.765% |
+| application | 58,530 | 1.264% |
 | mousetrap | 35,845 | 0.774% |
 | dom-align | 35,718 | 0.771% |
 | cssesc | 3,690 | 0.080% |
