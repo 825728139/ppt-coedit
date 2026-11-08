@@ -1,0 +1,40 @@
+import { chromium } from '@playwright/test';
+import assert from 'node:assert/strict';
+const browser=await chromium.launch();
+const page=await browser.newPage({viewport:{width:1500,height:950}});
+const errors=[];page.on('pageerror',e=>errors.push(e.message));
+const html=`<!doctype html><html><head><style>body{font-family:Arial;background:#fff}:root{--ink:#174a73}.slide{background:#eef5ff;padding:40px;width:1280px;height:720px}h1:is(.title,.other){color:var(--ink)}#heading{font-size:54px}</style></head><body><div class="reveal"><div class="slides"><section class="slide past" hidden><h1 id="heading" class="title">Imported first</h1><img src="images/missing.png"></section><section><section class="slide future" hidden><h1 class="other">Imported second</h1></section></section></div></div><script>window.badImport=true;</script></body></html>`;
+try{
+ await page.goto('http://127.0.0.1:5173');
+ await page.waitForFunction(()=>window.pptAgent?.inspect().pages.length===1);
+ await page.click('#open-html');
+ await page.setInputFiles('#deck-file',{name:'slides.html',mimeType:'text/html',buffer:Buffer.from(html)});
+ await page.click('#confirm-import');
+ await page.waitForFunction(()=>document.querySelector('#import-summary').textContent.includes('已导入 2 页'));
+ assert.equal(await page.locator('#pages .page').count(),3);
+ assert.match(await page.locator('#import-warnings').innerText(),/缺少本地资源/);
+ assert.match(await page.locator('#import-warnings').innerText(),/脚本未执行/);
+ assert.equal(await page.evaluate(()=>window.badImport),undefined);
+ await page.click('#cancel-import');
+ await page.frameLocator('.gjs-frame').getByText('Imported second',{exact:true}).waitFor({state:'visible'});
+ await page.locator('#pages .page button').filter({hasText:'Imported first'}).click();
+ const heading=page.frameLocator('.gjs-frame').getByText('Imported first',{exact:true});
+ await heading.waitFor({state:'visible'});
+ assert.equal(await heading.evaluate(el=>getComputedStyle(el).fontSize),'54px');
+ assert.equal(await heading.evaluate(el=>getComputedStyle(el).color),'rgb(23, 74, 115)');
+ await heading.dblclick();
+ await page.frameLocator('.gjs-frame').locator('[contenteditable="true"]').waitFor();
+ await page.keyboard.press('Escape');
+ await page.locator('header .brand').click();
+ await page.waitForTimeout(600);
+ const changed=await page.evaluate(()=>{const api=window.pptAgent;const s=api.inspect();const p=s.pages.find(p=>p.name==='Imported first');const h=p.objects.find(o=>o.tag==='h1');return api.apply({baseRevision:s.revision,requestId:'import-patch',patches:[{id:h.id,text:'Edited imported title'}]})});
+ assert.ok(changed.revision>0);
+ await page.frameLocator('.gjs-frame').getByText('Edited imported title',{exact:true}).waitFor();
+ await page.click('#undo');await heading.waitFor();
+ await page.click('#undo');assert.equal(await page.locator('#pages .page').count(),1);
+ // Asset embedding and AST scoping are exercised in the real browser runtime.
+ const assets=await page.evaluate(async()=>{const f=new File(['<svg xmlns="http://www.w3.org/2000/svg"/>'],'pic.svg',{type:'image/svg+xml'});const result=await window.pptAgent.parseHtml('<section><h1>Asset</h1><img src="pic.svg"></section>',[f]);return {embedded:result.slides[0].html.includes('data:image/svg+xml')};});
+ assert.ok(assets.embedded);
+ assert.deepEqual(errors,[]);
+ console.log('PASS: HTML file, reveal nested slides, CSS/variables, script removal, diagnostics, inline edit, Agent edit, undo, asset embedding, AST scope');
+}finally{await browser.close()}

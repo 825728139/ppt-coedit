@@ -1,0 +1,88 @@
+{
+  "generatedAt": "2026-11-08T10:56:14.631Z",
+  "metric": "Rollup renderedLength characters, after tree-shaking and before final chunk minification; JS only",
+  "localSource": {
+    "files": 7,
+    "nonEmptyLines": 485,
+    "bytes": 55324
+  },
+  "runtimeJavaScript": {
+    "totalRenderedCharacters": 4617434,
+    "groups": {
+      "grapesjs": {
+        "modules": 2,
+        "renderedCharacters": 2771908,
+        "percent": 60.031
+      },
+      "@antv/x6": {
+        "modules": 287,
+        "renderedCharacters": 1254793,
+        "percent": 27.175
+      },
+      "lodash-es": {
+        "modules": 245,
+        "renderedCharacters": 178023,
+        "percent": 3.855
+      },
+      "postcss-selector-parser": {
+        "modules": 62,
+        "renderedCharacters": 155635,
+        "percent": 3.371
+      },
+      "postcss": {
+        "modules": 29,
+        "renderedCharacters": 128045,
+        "percent": 2.773
+      },
+      "application": {
+        "modules": 6,
+        "renderedCharacters": 45310,
+        "percent": 0.981
+      },
+      "mousetrap": {
+        "modules": 3,
+        "renderedCharacters": 35845,
+        "percent": 0.776
+      },
+      "dom-align": {
+        "modules": 1,
+        "renderedCharacters": 35718,
+        "percent": 0.774
+      },
+      "cssesc": {
+        "modules": 1,
+        "renderedCharacters": 3690,
+        "percent": 0.08
+      },
+      "tslib": {
+        "modules": 1,
+        "renderedCharacters": 2688,
+        "percent": 0.058
+      },
+      "vite-runtime": {
+        "modules": 5,
+        "renderedCharacters": 2353,
+        "percent": 0.051
+      },
+      "util-deprecate": {
+        "modules": 1,
+        "renderedCharacters": 1832,
+        "percent": 0.04
+      },
+      "picocolors": {
+        "modules": 2,
+        "renderedCharacters": 885,
+        "percent": 0.019
+      },
+      "nanoid": {
+        "modules": 1,
+        "renderedCharacters": 709,
+        "percent": 0.015
+      }
+    }
+  },
+  "cssInputs": {
+    "src/style.css": 6207,
+    "node_modules/grapesjs/dist/css/grapes.min.css": 61053
+  }
+}
