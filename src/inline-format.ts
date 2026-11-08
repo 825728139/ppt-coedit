@@ -12,11 +12,14 @@ export function normalizeInlineFormatting(root: HTMLElement) {
         if (!node.textContent) return;
         const style = view.getComputedStyle(node.parentElement!);
         const decoration = new Set<string>();
+        let background = 'rgba(0, 0, 0, 0)';
         for(let p: HTMLElement | null = node.parentElement; p; p = p.parentElement) {
-          view.getComputedStyle(p).textDecorationLine.split(' ').filter(value => value !== 'none').forEach(value => decoration.add(value));
+          const ancestor = view.getComputedStyle(p);
+          ancestor.textDecorationLine.split(' ').filter(value => value !== 'none').forEach(value => decoration.add(value));
+          if(background === 'rgba(0, 0, 0, 0)' && !['transparent','rgba(0, 0, 0, 0)'].includes(ancestor.backgroundColor)) background = ancestor.backgroundColor;
           if(p === container) break;
         }
-        const marks = properties.map(prop => [prop, prop === 'text-decoration-line' ? [...decoration].sort().join(' ') || 'none' : style.getPropertyValue(prop)]).filter(([prop,value]) => value !== base.getPropertyValue(prop));
+        const marks = properties.map(prop => [prop, prop === 'text-decoration-line' ? [...decoration].sort().join(' ') || 'none' : prop === 'background-color' ? background : style.getPropertyValue(prop)]).filter(([prop,value]) => value !== base.getPropertyValue(prop));
         const key = JSON.stringify([marks, link ? [...link.attributes].filter(a => a.name !== 'id').map(a => [a.name,a.value]) : null]);
         if (previous?.key === key) { previous.text.appendData(node.textContent); return; }
         const text = doc.createTextNode(node.textContent); let run: Node = text;

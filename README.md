@@ -81,6 +81,8 @@ window.pptAgent.apply({
 
 ## 验证
 
+本轮三轮审查的缺陷、修复及剩余边界见 [REVIEW.md](./REVIEW.md)。
+
 ```powershell
 npm test
 npm run build
@@ -94,6 +96,7 @@ node tests/arrow-move-browser.mjs
 node tests/text-format-browser.mjs
 node tests/text-normalize-browser.mjs
 node tests/legacy-text-browser.mjs
+node tests/review-browser.mjs
 ```
 
 浏览器闭环覆盖对象创建、Agent 修改、重复请求、版本冲突、撤销重做、刷新恢复、页面和放映。测试在独立浏览器上下文内执行，不改日常浏览器存档；截图输出 preview.png。
@@ -115,7 +118,7 @@ node tests/legacy-text-browser.mjs
 
 ## 开源项目复用统计
 
-统计时间：2026-11-08T11:50:21.819Z。当前实际通过 npm 接入 **GrapesJS、AntV X6、PostCSS、postcss-selector-parser**，未从 clone 的仓库直接复制实现代码。X6 的已安装版本见 package-lock.json。其他已克隆仓库仍为调研参考。
+统计时间：2026-11-08T12:03:29.626Z。当前实际通过 npm 接入 **GrapesJS、AntV X6、PostCSS、postcss-selector-parser**，未从 clone 的仓库直接复制实现代码。X6 的已安装版本见 package-lock.json。其他已克隆仓库仍为调研参考。
 
 ### 占原项目与本项目维护源码的比例
 
@@ -135,20 +138,20 @@ node tests/legacy-text-browser.mjs
 
 这不表示 GrapesJS/X6 没有被使用。对于 npm 依赖，**使用了原仓库整体多少源码或多少执行路径，目前未测覆盖率**；不会把引入入口写成“使用整个原项目 100%”。仓库还包含测试、工具和文档，不能以 API 调用数量推断源码覆盖率。
 
-本项目维护的运行源码（src + index.html）共 **9 个文件、619 个非空物理行、70,225 UTF-8 字节**。不含测试、配置、脚本、文档、node_modules 和 dist；紧凑排版下行数不代表开发工作量。
+本项目维护的运行源码（src + index.html）共 **10 个文件、663 个非空物理行、74,019 UTF-8 字节**。不含测试、配置、脚本、文档、node_modules 和 dist；紧凑排版下行数不代表开发工作量。
 
 ### 占当前应用运行时 JavaScript 的比例
 
-分母为 Rollup renderedLength 合计 **4,630,654 个字符**，即 tree-shaking 后、最终 chunk 压缩前的模块代码量。不是下载体积、gzip 大小、执行覆盖率、功能贡献或开发投入占比。CommonJS 辅助模块按来源包归属；GrapesJS 发布文件内自带的依赖未再细分。
+分母为 Rollup renderedLength 合计 **4,633,903 个字符**，即 tree-shaking 后、最终 chunk 压缩前的模块代码量。不是下载体积、gzip 大小、执行覆盖率、功能贡献或开发投入占比。CommonJS 辅助模块按来源包归属；GrapesJS 发布文件内自带的依赖未再细分。
 
 | 来源 | 构建 JS 字符数 | 占当前运行时 JS |
 | --- | ---: | ---: |
-| grapesjs | 2,771,908 | 59.860% |
-| @antv/x6 | 1,254,793 | 27.098% |
-| lodash-es | 178,023 | 3.844% |
-| postcss-selector-parser | 155,635 | 3.361% |
-| postcss | 128,045 | 2.765% |
-| application | 58,530 | 1.264% |
+| grapesjs | 2,771,908 | 59.818% |
+| @antv/x6 | 1,254,793 | 27.079% |
+| lodash-es | 178,023 | 3.842% |
+| postcss-selector-parser | 155,635 | 3.359% |
+| postcss | 128,045 | 2.763% |
+| application | 61,779 | 1.333% |
 | mousetrap | 35,845 | 0.774% |
 | dom-align | 35,718 | 0.771% |
 | cssesc | 3,690 | 0.080% |

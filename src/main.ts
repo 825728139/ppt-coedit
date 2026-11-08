@@ -1,11 +1,12 @@
 import grapesjs, { type Component } from 'grapesjs';
 import 'grapesjs/dist/css/grapes.min.css';
 import './style.css';
-import { validateTransaction, type Transaction } from './protocol';
+import { validateTransaction, validateTransactionShape, type Transaction } from './protocol';
 import { importHtmlDeck, scopeCss } from './html-import';
 import { installEditingTools } from './editing-tools';
 import { installArrows } from './arrows';
 import { installTextFormat } from './text-format';
+import { descendants, slideRoot } from './component-tree';
 
 document.querySelector('#app')!.innerHTML = `
 <header><div class="brand">◈ 共页 <small>COEDIT / LAB</small></div><div class="document">人机协同演示文稿 <span id="status">准备中</span></div><button id="open-html"></button><button id="export">导出 HTML</button><button id="present" class="primary">▶ 放映</button></header>
@@ -54,7 +55,7 @@ editor.DomComponents.addType('slide-root', { isComponent: el => el.classList?.co
 
 let revision = 0, muted = true, timer: ReturnType<typeof setTimeout>;
 let history: string[] = [], cursor = -1;
-const requests = new Map<string, { revision: number }>();
+const requests = new Map<string, { fingerprint: string; result: { revision: number } }>();
 const storageKey = 'ppt-coedit-v1';
 const snapshot = () => JSON.stringify({ project: editor.getProjectData(), selectedPageId: editor.Pages.getSelected()?.getId() });
 function restoreSnapshot(value: string) { const state = JSON.parse(value); editor.loadProjectData(state.project); const selected = editor.Pages.get(state.selectedPageId); if (selected) editor.Pages.select(selected); }
@@ -63,8 +64,8 @@ function persist() { try { localStorage.setItem(storageKey, JSON.stringify({ sch
 function commit() { clearTimeout(timer); const value = snapshot(); if (!history[cursor] || JSON.stringify(JSON.parse(value).project) !== JSON.stringify(JSON.parse(history[cursor]).project)) { history = history.slice(0, cursor + 1); history.push(value); cursor++; } else { history[cursor] = value; } persist(); renderPages(); }
 function changed() { if (muted) return; revision++; status('正在保存…'); clearTimeout(timer); timer = setTimeout(commit, 450); }
 function batch(action: () => void) { commit(); const before = snapshot(); muted = true; try { action(); } catch (error) { restoreSnapshot(before); throw error; } finally { muted = false; } revision++; commit(); }
-const currentRoot = () => editor.Pages.getSelected()?.getMainComponent().find('.slide-root')[0];
-function normalize(root: Component) { [root, ...root.find('*')].forEach(c => { if (!c.getAttributes().id) c.addAttributes({ id: uid() }); if (c.parent() && !c.getClasses().includes('slide-object') && !c.getClasses().includes('slide-root')) c.set({ draggable: false }); }); }
+const currentRoot = () => { const page = editor.Pages.getSelected(); return page && slideRoot(page.getMainComponent()); };
+function normalize(root: Component) { [root, ...descendants(root)].forEach(c => { if (!c.getAttributes().id) c.addAttributes({ id: uid() }); if (c.parent() && !c.getClasses().includes('slide-object') && !c.getClasses().includes('slide-root')) c.set({ draggable: false }); }); }
 function addPage(html?: string, css = '') {
   const id = uid(); const name = `幻灯片 ${editor.Pages.getAll().length + 1}`;
   const page = editor.Pages.add({ id, name, component: `<section id="${id}-root" class="slide-root">${html ?? `<div class="slide-object" style="left:80px;top:80px;width:1000px;height:170px;font-size:64px;font-weight:700">从想法，到共同创作。</div><div class="slide-object" style="left:84px;top:300px;width:800px;height:110px;font-size:28px;color:#617877">Agent 负责构思与排版，你负责最后的判断。<br>每个元素都可以继续编辑。</div><div class="slide-object" style="left:84px;top:590px;width:500px;height:40px;color:#3b7972;font-size:20px">COEDIT / HUMAN × AGENT</div>`}</section>`, styles: baseCss });
@@ -74,18 +75,27 @@ function addPage(html?: string, css = '') {
 }
 function renderPages() { const list = $('pages'); list.replaceChildren(); editor.Pages.getAll().forEach((page, index) => { const item = document.createElement('div'); item.className = 'page' + (page === editor.Pages.getSelected() ? ' active' : ''); const button = document.createElement('button'); button.textContent = `${String(index + 1).padStart(2, '0')}   ${page.get('name') || '幻灯片'}`; button.onclick = () => editor.Pages.select(page); item.append(button); const del = document.createElement('button'); del.textContent = '×'; del.title = '删除页面'; del.disabled = editor.Pages.getAll().length <= 1; del.onclick = () => batch(() => { editor.Pages.remove(page); }); item.append(del); list.append(item); }); $('count').textContent = `${editor.Pages.getAll().length} 页`; }
 function selectInfo() { const c = editor.getSelected(); $('selected').textContent = c ? `${c.getName()} · ${c.getId()}${c.get('coeditLocked') ? ' · 已锁定' : ''}` : '请选择画布中的元素'; }
-function addObject(html: string) { batch(() => { const root = currentRoot(); if (!root) return; const components = root.append(html); normalize(root); editor.select(components[0]); }); }
+function addObject(html: string, destination = currentRoot()) { if (!destination || !editor.Pages.getAll().some(page => descendants(page.getMainComponent()).includes(destination))) return; batch(() => { const components = destination.append(html); normalize(destination); if(destination === currentRoot()) editor.select(components[0]); }); }
+async function flushTextEditing() {
+  const view = editor.RichTextEditor.model.get('currentView') as { disableEditing?: () => Promise<void> } | undefined;
+  if(view?.disableEditing) await view.disableEditing();
+  // A header click may already have started an asynchronous blur sync.
+  await new Promise(resolve => setTimeout(resolve,0));
+}
 
 const api = {
   parseHtml: importHtmlDeck,
-  inspect() { return { revision, pageId: editor.Pages.getSelected()?.getId(), selection: editor.getSelectedAll().map(c => c.getId()), pages: editor.Pages.getAll().map(p => ({ id: p.getId(), name: p.get('name'), objects: p.getMainComponent().find('*').map(c => ({ id: c.getId(), tag: c.get('tagName'), locked: !!c.get('coeditLocked'), text: c.getEl()?.textContent?.slice(0, 180), style: c.getStyle() })) })) }; },
+  inspect() { return { revision, pageId: editor.Pages.getSelected()?.getId(), selection: editor.getSelectedAll().map(c => c.getId()), pages: editor.Pages.getAll().map(p => ({ id: p.getId(), name: p.get('name'), objects: descendants(p.getMainComponent()).map(c => ({ id: c.getId(), tag: c.get('tagName'), locked: !!c.get('coeditLocked'), text: (c.getEl()?.textContent ?? new DOMParser().parseFromString(c.toHTML(), 'text/html').body.textContent ?? '').slice(0, 180), style: c.getStyle() })) })) }; },
   apply(transaction: Transaction) {
-    const previous = requests.get(transaction.requestId); if (previous) return previous;
+    validateTransactionShape(transaction);
+    const fingerprint = JSON.stringify(transaction), previous = requests.get(transaction.requestId);
+    if (previous) { if(previous.fingerprint !== fingerprint) throw new Error('request_id_conflict'); return previous.result; }
+    if(editor.getModel().isEditing()) throw new Error('text_edit_in_progress');
     const get = (id: string) => editor.Components.getById(id);
     validateTransaction(transaction, revision, id => !!get(id), id => { let c: Component | undefined = get(id); while (c) { if (c.get('coeditLocked')) return true; c = c.parent(); } return false; });
     for (const patch of transaction.patches) if (patch.text !== undefined && get(patch.id)!.components().some((c: Component) => c.get('type') !== 'textnode')) throw new Error('text_target_has_children');
     batch(() => { transaction.patches.forEach(patch => { const c = get(patch.id)!; if (patch.text !== undefined) c.components(document.createTextNode(patch.text).textContent!.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')); if (patch.style) c.addStyle(patch.style); }); });
-    const result = { revision }; requests.set(transaction.requestId, result); return result;
+    const result = { revision }; requests.set(transaction.requestId, {fingerprint,result}); return result;
   },
 };
 (window as unknown as { pptAgent: typeof api }).pptAgent = api;
@@ -100,8 +110,8 @@ editor.on('load', () => {
 $('add-page').onclick = () => batch(() => addPage());
 $('add-text').onclick = () => addObject('<div class="slide-object" style="left:100px;top:180px;width:600px;height:90px;font-size:40px">双击编辑文字</div>');
 $('add-card').onclick = () => addObject('<article class="slide-object card" style="left:130px;top:240px;width:480px;height:260px"><h2>一个值得分享的想法</h2><p>这是可编辑的 HTML 卡片。外层自由定位，内部保持流式排版。</p></article>');
-$('add-image').onclick = () => { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.onchange = () => { const file = input.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => addObject(`<img class="slide-object" src="${reader.result}" style="left:180px;top:150px;width:480px;height:320px;object-fit:contain">`); reader.readAsDataURL(file); }; input.click(); };
-$('save').onclick = commit;
+$('add-image').onclick = () => { const destination = currentRoot(); const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.onchange = () => { const file = input.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => addObject(`<img class="slide-object" src="${reader.result}" style="left:180px;top:150px;width:480px;height:320px;object-fit:contain">`, destination); reader.readAsDataURL(file); }; input.click(); };
+$('save').onclick = async () => { await flushTextEditing(); commit(); };
 for (const [id, delta] of [['undo', -1], ['redo', 1]] as const) $(id).onclick = () => { commit(); const next = cursor + delta; if (next < 0 || next >= history.length) return; muted = true; restoreSnapshot(history[next]); muted = false; cursor = next; history[cursor] = snapshot(); revision++; persist(); renderPages(); };
 $('zoom').onchange = () => setPreviewZoom(Number($<HTMLSelectElement>('zoom').value));
 $('zoom-out').onclick = () => setPreviewZoom(editor.Canvas.getZoom() - 10);
@@ -114,9 +124,9 @@ document.querySelectorAll<HTMLButtonElement>('[data-panel]').forEach(b => b.oncl
 $('example').onclick = () => { const c = editor.getSelected(); if (!c) { $('result').textContent = '请先选中文字对象'; return; } $<HTMLTextAreaElement>('transaction').value = JSON.stringify({ baseRevision: revision, requestId: crypto.randomUUID(), patches: [{ id: c.getId(), text: '让创作更进一步', style: { color: '#26756d' } }] }, null, 2); };
 $('apply').onclick = () => { try { $('result').textContent = JSON.stringify(api.apply(JSON.parse($<HTMLTextAreaElement>('transaction').value)), null, 2); } catch (e) { $('result').textContent = String(e); } };
 $('import-html').onclick = () => { try { batch(() => addPage($<HTMLTextAreaElement>('html-input').value, $<HTMLTextAreaElement>('css-input').value)); $('result').textContent = '已导入新页面'; } catch (e) { $('result').textContent = String(e); } };
-function presentation() { const slides = editor.Pages.getAll().map(p => { const c = p.getMainComponent().find('.slide-root')[0] || p.getMainComponent(); return { html: new DOMParser().parseFromString(c.toHTML(), 'text/html').body.innerHTML, css: editor.getCss({ component: c }) }; }); return `<!doctype html><html><head><meta charset="utf-8"><title>共页演示</title><style>body{margin:0;background:#15292b}.frame{position:absolute;width:1280px;height:720px;left:50%;top:50%;transform-origin:center}.frame[hidden]{display:none}</style></head><body>${slides.map((s,i) => `<div class="frame" ${i ? 'hidden' : ''}><style>${s.css}</style>${s.html}</div>`).join('')}<script>const slides=[...document.querySelectorAll('.frame')];let i=0;function fit(){slides.forEach(s=>s.style.transform='translate(-50%,-50%) scale('+Math.min(innerWidth/1280,innerHeight/720)+')')}onresize=fit;fit();onkeydown=e=>{if(['ArrowRight',' ','ArrowLeft'].includes(e.key)){e.preventDefault();slides[i].hidden=true;i=(i+(e.key==='ArrowLeft'?-1:1)+slides.length)%slides.length;slides[i].hidden=false}};<\/script></body></html>`; }
-$('export').onclick = () => { const url = URL.createObjectURL(new Blob([presentation()], { type: 'text/html' })); const a = document.createElement('a'); a.href = url; a.download = '共页演示.html'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); };
-$('present').onclick = () => { $<HTMLIFrameElement>('player-frame').srcdoc = presentation(); $<HTMLDialogElement>('player').showModal(); $<HTMLIFrameElement>('player-frame').focus(); };
+function presentation() { const slides = editor.Pages.getAll().map(p => { const c = slideRoot(p.getMainComponent()) || p.getMainComponent(); return { html: new DOMParser().parseFromString(c.toHTML(), 'text/html').body.innerHTML, css: editor.getCss({ component: c }) }; }); return `<!doctype html><html><head><meta charset="utf-8"><title>共页演示</title><style>body{margin:0;background:#15292b}.frame{position:absolute;width:1280px;height:720px;left:50%;top:50%;transform-origin:center}.frame[hidden]{display:none}</style></head><body>${slides.map((s,i) => `<div class="frame" ${i ? 'hidden' : ''}><style>${s.css}</style>${s.html}</div>`).join('')}<script>const slides=[...document.querySelectorAll('.frame')];let i=0;function fit(){slides.forEach(s=>s.style.transform='translate(-50%,-50%) scale('+Math.min(innerWidth/1280,innerHeight/720)+')')}onresize=fit;fit();onkeydown=e=>{if(['ArrowRight',' ','ArrowLeft'].includes(e.key)){e.preventDefault();slides[i].hidden=true;i=(i+(e.key==='ArrowLeft'?-1:1)+slides.length)%slides.length;slides[i].hidden=false}};<\/script></body></html>`; }
+$('export').onclick = async () => { await flushTextEditing(); commit(); const url = URL.createObjectURL(new Blob([presentation()], { type: 'text/html' })); const a = document.createElement('a'); a.href = url; a.download = '共页演示.html'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); };
+$('present').onclick = async () => { await flushTextEditing(); commit(); $<HTMLIFrameElement>('player-frame').srcdoc = presentation(); $<HTMLDialogElement>('player').showModal(); $<HTMLIFrameElement>('player-frame').focus(); };
 $('close-player').onclick = () => $<HTMLDialogElement>('player').close();
 
 $('open-html').onclick = () => $<HTMLDialogElement>('import-dialog').showModal();

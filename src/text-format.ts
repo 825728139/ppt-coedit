@@ -1,5 +1,6 @@
 import type { Component, Editor } from 'grapesjs';
 import { normalizeInlineFormatting } from './inline-format';
+import { descendants } from './component-tree';
 type Styles = Record<string, string>;
 const blocks = 'p,h1,h2,h3,h4,h5,h6,li,blockquote,div';
 export function installTextFormat(editor: Editor, batch: (action: () => void) => void) {
@@ -62,10 +63,10 @@ export function installTextFormat(editor: Editor, batch: (action: () => void) =>
   el('text-save').onclick = () => { const c=editor.Components.getById(targetId); if(!c||locked(c)){el('text-format-status').textContent='目标已删除或锁定，未保存。';return;} if(c.toHTML()!==base){el('text-format-status').textContent='原文本框已被其他操作修改，请关闭并重新打开。';return;} normalizeInlineFormatting(content); batch(()=>{c.addStyle(Object.fromEntries([...content.style].map(key=>[key,content.style.getPropertyValue(key)]))); c.addAttributes({'data-coedit-textbox':'true'}); c.components(content.innerHTML); protect(c);}); dialog.close(); };
   function protect(c: Component) {
     if(!c.getAttributes()['data-coedit-textbox']) c.addAttributes({'data-coedit-textbox':'true'});
-    c.find('*').forEach(child => child.set({selectable:false,hoverable:false,draggable:false,resizable:false,layerable:false}, {silent:true}));
+    descendants(c).forEach(child => child.set({selectable:false,hoverable:false,draggable:false,resizable:false,layerable:false}, {silent:true}));
   }
   const isTextBox = (c: Component) => c.get('type') === 'slide-text' || !!c.getAttributes()['data-coedit-textbox'];
-  const protectAll = () => editor.Pages.getAll().forEach(page => page.getMainComponent().find('*').filter(isTextBox).forEach(protect));
+  const protectAll = () => editor.Pages.getAll().forEach(page => descendants(page.getMainComponent()).filter(isTextBox).forEach(protect));
   editor.on('load project:load', protectAll);
   editor.on('component:add', (component: Component) => { let c: Component | undefined = component; while(c) { if(isTextBox(c)) { protect(c); break; } c = c.parent(); } });
   // The built-in canvas RTE syncs its model asynchronously after rte:disable.

@@ -48,10 +48,10 @@ export function installEditingTools(editor: Editor, batch: (action: () => void) 
   el('object-parent').onclick = () => { const p = editor.getSelected()?.parent(); if (p && p !== editor.getWrapper()) editor.select(p); };
   el('replace-image').onclick = () => { el<HTMLInputElement>('replace-image-file').value = ''; el<HTMLInputElement>('replace-image-file').click(); };
   el<HTMLInputElement>('replace-image-file').onchange = async () => {
-    const targetId = editor.getSelected()?.getId();
+    const target = editor.getSelected(), targetId = target?.getId();
     const file = el<HTMLInputElement>('replace-image-file').files?.[0]; if (!file || !targetId || !file.type.startsWith('image/')) return;
     const reader = new FileReader();
-    reader.onload = () => { const c = editor.Components.getById(targetId); if (!c || locked(c)) return; batch(() => { c.addAttributes({ src: String(reader.result) }); if (c.get('type') === 'image') c.set('src', String(reader.result)); }); update(); };
+    reader.onload = () => { const c = editor.Components.getById(targetId); if (!c || c !== target || locked(c)) return; batch(() => { c.addAttributes({ src: String(reader.result) }); if (c.get('type') === 'image') c.set('src', String(reader.result)); }); update(); };
     reader.onerror = () => { el('object-tip').textContent = '图片读取失败，请重新选择。'; }; reader.readAsDataURL(file);
   };
   function keyboard(event: KeyboardEvent) {

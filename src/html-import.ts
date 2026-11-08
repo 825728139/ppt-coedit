@@ -78,7 +78,7 @@ export async function importHtmlDeck(source: string, assets: File[] = [], source
     if (/^javascript:/i.test(el.getAttribute('href') || '')) el.removeAttribute('href');
   }
   let candidates = [...doc.querySelectorAll('.reveal .slides section')].filter(el => !el.querySelector('section'));
-  if (!candidates.length) candidates = [...doc.querySelectorAll('.slide-root')];
+  if (!candidates.length) candidates = [...doc.querySelectorAll('.slide-root')].filter(el => !el.parentElement?.closest('.slide-root'));
   if (!candidates.length) candidates = [...doc.querySelectorAll('[data-slide],.slide')].filter(el => !el.parentElement?.closest('[data-slide],.slide'));
   if (!candidates.length) candidates = [...doc.body.children].filter(el => el.tagName === 'SECTION');
   if (!candidates.length) { candidates = [doc.body]; warnings.add('未发现多页标记，已按单页导入。'); }
@@ -100,7 +100,13 @@ export async function importHtmlDeck(source: string, assets: File[] = [], source
     const idMap = new Map<string, string>();
     html.querySelectorAll('[id]').forEach(el => { const old = el.id; if (!idMap.has(old)) idMap.set(old, prefix + old); el.id = idMap.get(old)!; });
     html.querySelectorAll('[href^="#"]').forEach(el => { const id = el.getAttribute('href')!.slice(1); if (idMap.has(id)) el.setAttribute('href', '#' + idMap.get(id)); });
+    const rewriteUrls = (value: string) => value.replace(/url\(\s*(['"]?)#([^)'"\s]+)\1\s*\)/g, (match, _quote, id) => idMap.has(id) ? `url(#${idMap.get(id)})` : match);
+    html.querySelectorAll('*').forEach(el => { for(const attr of [...el.attributes]) {
+      if(attr.name === 'xlink:href' && attr.value.startsWith('#') && idMap.has(attr.value.slice(1))) el.setAttribute(attr.name,'#'+idMap.get(attr.value.slice(1)));
+      else if(attr.value.includes('url(')) el.setAttribute(attr.name,rewriteUrls(attr.value));
+    } });
     const tree = postcss.parse(cssParts.join('\n'));
+    tree.walkDecls(decl => { decl.value = rewriteUrls(decl.value); });
     tree.walkRules(rule => {
       if (rule.parent?.type === 'atrule' && /keyframes$/i.test(rule.parent.name)) return;
       rule.selector = selectorParser(selectors => {

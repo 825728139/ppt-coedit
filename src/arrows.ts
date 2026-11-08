@@ -1,5 +1,6 @@
 import { Graph, type Edge } from '@antv/x6';
 import type { Component, Editor } from 'grapesjs';
+import { descendants, slideRoot } from './component-tree';
 
 /** X6 owns live gestures; GrapesJS owns the saved JSON + static SVG and undo history. */
 export function installArrows(editor: Editor, batch: (action: () => void) => void) {
@@ -33,8 +34,8 @@ export function installArrows(editor: Editor, batch: (action: () => void) => voi
     interacting: () => ({ edgeMovable: false, arrowheadMovable: allowed(), vertexMovable: allowed() }),
   });
   let mode = false, loading = false, dirty = false, currentPage = '', loaded = '', selected = '';
-  const root = () => editor.Pages.getSelected()?.getMainComponent().find('.slide-root')[0];
-  const diagram = () => root()?.find('[data-coedit-diagram]')[0];
+  const root = () => { const page = editor.Pages.getSelected(); return page && slideRoot(page.getMainComponent()); };
+  const diagram = () => { const c = root(); return c && descendants(c).find(child => child.getAttributes()['data-coedit-diagram']); };
   const allowed = () => !root()?.get('coeditLocked') && !diagram()?.get('coeditLocked');
   const selectedEdge = () => { const cell = graph.getCellById(selected); return cell?.isEdge() ? cell : undefined; };
   function json() { const value = graph.toJSON(); value.cells.forEach(cell => { delete cell.tools; }); return value; }
