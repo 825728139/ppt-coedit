@@ -13,21 +13,22 @@ export function installFileSession(options: { load(source:string):Promise<void>;
   document.querySelector('nav')!.after(bar);
   const el=<T extends HTMLElement=HTMLElement>(id:string)=>bar.querySelector<T>(`#${id}`)!;
   const picker=window as PickerWindow;
-  let handle:HtmlFileHandle|undefined, baseline='', observed='', busy=false;
+  let handle:HtmlFileHandle|undefined, baseline='', busy=false;
   let activePoll:Promise<void>|undefined;
   const report=(message:string)=>{el('source-state').textContent=message};
   const dirty=()=>{if(options.editing())return true;try{return options.render()!==baseline}catch{return true}};
-  async function load(source:string){await options.load(source);baseline=source;observed=source;el('source-name').textContent=handle!.name;el<HTMLButtonElement>('reload-source').disabled=false;report('已加载原文件 · 自动检测外部修改');}
+  async function load(source:string,next=handle){if(!source.trim())throw new Error('文件暂为空，等待写入完成。');await options.load(source);handle=next;baseline=source;el('source-name').textContent=handle!.name;el<HTMLButtonElement>('reload-source').disabled=false;report('已加载原文件 · 自动检测外部修改');}
   async function open(){
     if(!picker.showOpenFilePicker){report('当前浏览器不支持直接读写本地文件，请使用 Chrome/Edge，或使用“导入副本”和“导出 HTML”。');return}
-    if(handle&&dirty()&&!confirm('当前有未保存修改，打开其他文件将放弃这些修改，是否继续？'))return;
+    await activePoll;if(busy)return;busy=true;
     try{
+      if(handle&&dirty()&&!confirm('当前有未保存修改，打开其他文件将放弃这些修改，是否继续？'))return;
       const [next]=await picker.showOpenFilePicker({multiple:false,types:[{description:'HTML 演示文稿',accept:{'text/html':['.html','.htm']}}]});
-      if(!next)return;busy=true;const source=await(await next.getFile()).text(),previous=handle;handle=next;
-      try{await load(source)}catch(error){handle=previous;throw error}
+      if(!next)return;await load(await(await next.getFile()).text(),next);
     }catch(error){if((error as DOMException).name!=='AbortError')report(`打开失败：${String(error)}`)}finally{busy=false}
   }
   async function reload(){
+    await activePoll;
     if(!handle||busy)return;
     if(dirty()&&!confirm('重新加载会放弃编辑器内尚未保存的修改，是否加载磁盘版本？'))return;
     busy=true;try{await load(await(await handle.getFile()).text())}catch(error){report(`加载失败，保留当前编辑内容：${String(error)}`)}finally{busy=false}
@@ -38,7 +39,7 @@ export function installFileSession(options: { load(source:string):Promise<void>;
     try{
       const source=await(await handle.getFile()).text();
       if(source!==baseline){
-        if(source!==observed){observed=source;await load(source);report('已同步磁盘上的外部修改')}
+        await load(source);report('已同步磁盘上的外部修改');
       }
     }catch(error){report(`文件同步失败，当前内容已保留：${String(error)}`)}finally{busy=false}
   }
@@ -51,20 +52,21 @@ export function installFileSession(options: { load(source:string):Promise<void>;
     try{
       await options.flush();
       const text=options.render(),current=await(await handle.getFile()).text();
+      if(current!==baseline){await load(current);report('已同步磁盘上的外部修改');return}
       if(text!==current){writable=await handle.createWritable();await writable.write(text);await writable.close();writable=undefined}
-      baseline=text;observed=text;report('已写回原 HTML 文件 · 可交给 Codex / OpenCode 继续修改');
+      baseline=text;report('已写回原 HTML 文件 · 可交给 Codex / OpenCode 继续修改');
     }catch(error){await writable?.abort?.().catch(()=>{});report(`保存失败，磁盘未确认更新：${String(error)}`)}finally{busy=false}
   }
   async function saveAs(){
     if(!picker.showSaveFilePicker){report('当前浏览器不支持直接保存文件，请点击“导出 HTML”下载副本。');return}
-    if(busy)return;
+    await activePoll;if(busy)return;
     busy=true;let writable:Awaited<ReturnType<HtmlFileHandle['createWritable']>>|undefined;
     try{
       await options.flush();
       const text=options.render(),next=await picker.showSaveFilePicker({suggestedName:handle?.name||'演示文稿.html',types:[{description:'HTML 演示文稿',accept:{'text/html':['.html']}}]});
       writable=await next.createWritable();await writable.write(text);await writable.close();writable=undefined;
       // Reopening establishes source ranges for newly created documents as well.
-      handle=next;await load(text);report('已另存并绑定新文件');
+      await load(text,next);report('已另存并绑定新文件');
     }catch(error){await writable?.abort?.().catch(()=>{});if((error as DOMException).name!=='AbortError')report(`另存失败：${String(error)}`)}finally{busy=false}
   }
   el('open-source').onclick=open;el('reload-source').onclick=reload;el('save-source-as').onclick=saveAs;

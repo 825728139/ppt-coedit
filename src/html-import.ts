@@ -5,12 +5,17 @@ export interface ImportedSlide { name: string; html: string; css: string; source
 export interface ImportResult { slides: ImportedSlide[]; warnings: string[] }
 
 /** Scope selectors with an AST so commas inside :is() and attributes stay intact. */
-export function scopeCss(css: string, rootId: string): string {
+export function scopeCss(css: string, rootId: string, preserveRoot = false): string {
   const tree = postcss.parse(css);
   tree.walkRules(rule => {
     if (rule.parent?.type === 'atrule' && /keyframes$/i.test(rule.parent.name)) return;
     rule.selector = selectorParser(selectors => {
       selectors.each(selector => {
+        if(preserveRoot) {
+          let scoped=false;selector.walkIds(id=>{if(id.value===rootId)scoped=true});
+          if(scoped)return;
+          if(selector.nodes.length===1&&selector.first?.type==='class'&&selector.first.value==='slide-root') {selector.first.replaceWith(selectorParser.id({value:rootId}));return}
+        }
         selector.prepend(selectorParser.combinator({ value: ' ' }));
         selector.prepend(selectorParser.id({ value: rootId }));
       });
@@ -95,7 +100,7 @@ export async function importHtmlDeck(source: string, assets: File[] = [], source
     }
     const body = doc.createElement('div'); body.className = `${doc.body.className} import-body`; body.style.cssText = doc.body.style.cssText;
     if (doc.body.id) body.id = doc.body.id;
-    if (element === doc.body) body.innerHTML = content.innerHTML; else body.append(branch);
+    if (element === doc.body) {body.innerHTML = content.innerHTML;const sourceKey=element.getAttribute('data-coedit-source');if(sourceKey)body.setAttribute('data-coedit-source',sourceKey)} else body.append(branch);
     const html = doc.createElement('div'); html.className = `${doc.documentElement.className} import-html`; html.style.cssText = doc.documentElement.style.cssText; html.append(body);
     const idMap = new Map<string, string>();
     html.querySelectorAll('[id]').forEach(el => { const old = el.id; if (!idMap.has(old)) idMap.set(old, prefix + old); el.id = idMap.get(old)!; });

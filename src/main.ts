@@ -150,10 +150,13 @@ $('confirm-import').onclick = async () => {
 
 async function loadSource(source: string) {
   const document = new SourceDocument(source), result = await importHtmlDeck(document.preparedHtml());
+  $<HTMLDialogElement>('text-format-dialog').close();
+  await flushTextEditing();
   const selectedIndex=Math.max(0,editor.Pages.getAll().indexOf(editor.Pages.getSelected()!));
   const before = snapshot(); muted = true;
   try {
     [...editor.Pages.getAll()].forEach(page=>editor.Pages.remove(page));
+    editor.Css.clear();
     for(const slide of result.slides) { addPage(slide.html,slide.css); editor.Pages.getSelected()!.set({name:slide.name,coeditSourceRoot:slide.sourceKey}); }
     editor.Pages.select(editor.Pages.getAll()[Math.min(selectedIndex,result.slides.length-1)]);
     document.capture(editor); sourceDocument=document;

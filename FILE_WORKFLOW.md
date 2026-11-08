@@ -11,6 +11,8 @@ Codex / OpenCode 独立写 HTML PPT，本项目只提供人工可视化微调。
 - `src/source-document.ts`：parse5 记录原始 HTML 源码位置，给编辑模型建立临时映射。保存比较编辑前后属性及子内容，只替换原文涉及的源码区间。
 - 无编辑保存逐字保留；修改文字/样式保留原 ID、原样式表、脚本及未改部分。临时源码标记不会写回文件。
 - 新对象插入原页面，新增和删除页面可回写；文件更新后保留所看页码，重置撤销历史。
+- 支持没有显式 html/body 的 HTML 片段及省略结束标签；片段新增页面时会补分页包装。没有实际 body 标签时，整体容器属性修改会提示先补全 HTML 外壳。
+- 新增 HTML/CSS 页保存时保留该页样式；外部更新会关闭旧文字编辑窗口、结束旧 RTE，并替换旧 CSS。
 - Ctrl/Cmd+S 在编辑器主窗口和画布内均写回源文件。
 - 正常页面移除 Agent 面板和全局接口；旧事务逻辑只在 `?test=1` 回归模式启用。
 
@@ -32,3 +34,5 @@ Codex / OpenCode 独立写 HTML PPT，本项目只提供人工可视化微调。
 ## 验证
 
 `tests/file-workflow-browser.mjs` 使用浏览器文件句柄适配器实际读写测试磁盘 HTML，验证无编辑字节一致、标题和字号局部回写、脚本及注释保留、外部变更自动呈现、外部版本替换未保存编辑，以及新增文字回写。原生文件选择对话框由测试适配器替代，仍需在实际 Chrome / Edge 中手动选择文件验证授权流程。
+
+源码边界与会话失败测试分别为 `tests/file-review-browser.mjs` 和 `tests/file-session-browser.mjs`，具体结果见 [FILE_REVIEW.md](./FILE_REVIEW.md)。

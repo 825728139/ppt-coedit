@@ -1,63 +1,63 @@
 {
-  "generatedAt": "2026-11-08T12:39:26.668Z",
+  "generatedAt": "2026-11-08T13:03:44.907Z",
   "metric": "Rollup renderedLength characters, after tree-shaking and before final chunk minification; JS only",
   "localSource": {
     "files": 12,
-    "nonEmptyLines": 907,
-    "bytes": 92687
+    "nonEmptyLines": 959,
+    "bytes": 96402
   },
   "runtimeJavaScript": {
-    "totalRenderedCharacters": 5023775,
+    "totalRenderedCharacters": 5027584,
     "groups": {
       "grapesjs": {
         "modules": 2,
         "renderedCharacters": 2771914,
-        "percent": 55.176
+        "percent": 55.134
       },
       "@antv/x6": {
         "modules": 287,
         "renderedCharacters": 1254817,
-        "percent": 24.978
+        "percent": 24.959
       },
       "parse5": {
         "modules": 14,
         "renderedCharacters": 314061,
-        "percent": 6.251
+        "percent": 6.247
       },
       "lodash-es": {
         "modules": 245,
         "renderedCharacters": 178025,
-        "percent": 3.544
+        "percent": 3.541
       },
       "postcss-selector-parser": {
         "modules": 62,
         "renderedCharacters": 155635,
-        "percent": 3.098
+        "percent": 3.096
       },
       "postcss": {
         "modules": 29,
         "renderedCharacters": 128045,
-        "percent": 2.549
+        "percent": 2.547
       },
       "application": {
         "modules": 11,
-        "renderedCharacters": 78502,
-        "percent": 1.563
+        "renderedCharacters": 82311,
+        "percent": 1.637
       },
       "entities": {
         "modules": 4,
         "renderedCharacters": 59056,
-        "percent": 1.176
+        "percent": 1.175
       },
       "mousetrap": {
         "modules": 3,
         "renderedCharacters": 35845,
-        "percent": 0.714
+        "percent": 0.713
       },
       "dom-align": {
         "modules": 1,
         "renderedCharacters": 35718,
-        "percent": 0.711
+        "percent": 0.71
       },
       "cssesc": {
         "modules": 1,
@@ -67,7 +67,7 @@
       "tslib": {
         "modules": 1,
         "renderedCharacters": 2688,
-        "percent": 0.054
+        "percent": 0.053
       },
       "vite-runtime": {
         "modules": 5,
