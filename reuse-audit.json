@@ -1,53 +1,53 @@
 {
-  "generatedAt": "2026-11-08T11:23:33.272Z",
+  "generatedAt": "2026-11-08T11:34:58.193Z",
   "metric": "Rollup renderedLength characters, after tree-shaking and before final chunk minification; JS only",
   "localSource": {
-    "files": 8,
-    "nonEmptyLines": 555,
-    "bytes": 65394
+    "files": 9,
+    "nonEmptyLines": 604,
+    "bytes": 69230
   },
   "runtimeJavaScript": {
-    "totalRenderedCharacters": 4626228,
+    "totalRenderedCharacters": 4629848,
     "groups": {
       "grapesjs": {
         "modules": 2,
         "renderedCharacters": 2771908,
-        "percent": 59.917
+        "percent": 59.87
       },
       "@antv/x6": {
         "modules": 287,
         "renderedCharacters": 1254793,
-        "percent": 27.123
+        "percent": 27.102
       },
       "lodash-es": {
         "modules": 245,
         "renderedCharacters": 178023,
-        "percent": 3.848
+        "percent": 3.845
       },
       "postcss-selector-parser": {
         "modules": 62,
         "renderedCharacters": 155635,
-        "percent": 3.364
+        "percent": 3.362
       },
       "postcss": {
         "modules": 29,
         "renderedCharacters": 128045,
-        "percent": 2.768
+        "percent": 2.766
       },
       "application": {
-        "modules": 7,
-        "renderedCharacters": 54104,
-        "percent": 1.17
+        "modules": 8,
+        "renderedCharacters": 57724,
+        "percent": 1.247
       },
       "mousetrap": {
         "modules": 3,
         "renderedCharacters": 35845,
-        "percent": 0.775
+        "percent": 0.774
       },
       "dom-align": {
         "modules": 1,
         "renderedCharacters": 35718,
-        "percent": 0.772
+        "percent": 0.771
       },
       "cssesc": {
         "modules": 1,

@@ -32,7 +32,7 @@ export function installEditingTools(editor: Editor, batch: (action: () => void) 
     el('quick-bold').classList.toggle('active', Number(style?.fontWeight) >= 600 || style?.fontWeight === 'bold');
     bar.querySelectorAll<HTMLInputElement | HTMLButtonElement>('.object-controls input,.object-controls button').forEach(control => { control.disabled = locked(c); });
     el<HTMLButtonElement>('object-parent').disabled = !c.parent() || c.parent() === editor.getWrapper();
-    enter.disabled = !c.components().some((child: Component) => child.get('type') !== 'textnode');
+    enter.disabled = !!c.getAttributes()['data-coedit-textbox'] || !c.components().some((child: Component) => child.get('type') !== 'textnode');
     // Enable direct manipulation only when browser layout already places this object freely.
     if (!isRoot(c) && free && !locked(c)) c.set({ draggable: true, resizable: true }, { silent: true });
   }
@@ -77,7 +77,10 @@ export function installEditingTools(editor: Editor, batch: (action: () => void) 
     doc.addEventListener('click', event => {
       if ((event.target as Element).closest('[contenteditable="true"]')) return;
       const node = (event.target as Element).closest('[id]');
-      const c = node && editor.Components.getById(node.id);
+      let c = node && editor.Components.getById(node.id);
+      // Inline formatting is part of one text box, never an independently selected box.
+      const box = (event.target as Element).closest('[data-coedit-textbox]');
+      if (box?.id) c = editor.Components.getById(box.id);
       if (c) { if (event.altKey) { event.preventDefault(); event.stopImmediatePropagation(); } editor.select(c); }
     }, true);
     attached.add(doc);

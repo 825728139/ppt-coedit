@@ -1,4 +1,5 @@
 import type { Component, Editor } from 'grapesjs';
+import { normalizeInlineFormatting } from './inline-format';
 type Styles = Record<string, string>;
 const blocks = 'p,h1,h2,h3,h4,h5,h6,li,blockquote,div';
 export function installTextFormat(editor: Editor, batch: (action: () => void) => void) {
@@ -58,6 +59,12 @@ export function installTextFormat(editor: Editor, batch: (action: () => void) =>
   number('text-size','font-size',6,300,'px'); number('text-spacing','letter-spacing',-5,50,'px'); number('text-line-height','line-height',0.5,5,''); number('text-paragraph-gap','margin-bottom',0,100,'px');
   for(const align of ['left','center','right']) el(`text-${align}`).onclick = () => apply({'text-align':align},true);
   el('text-cancel').onclick = () => dialog.close();
-  el('text-save').onclick = () => { const c=editor.Components.getById(targetId); if(!c||locked(c)){el('text-format-status').textContent='目标已删除或锁定，未保存。';return;} if(c.toHTML()!==base){el('text-format-status').textContent='原文本框已被其他操作修改，请关闭并重新打开。';return;} batch(()=>{c.addStyle(Object.fromEntries([...content.style].map(key=>[key,content.style.getPropertyValue(key)]))); c.components(content.innerHTML);}); dialog.close(); };
+  el('text-save').onclick = () => { const c=editor.Components.getById(targetId); if(!c||locked(c)){el('text-format-status').textContent='目标已删除或锁定，未保存。';return;} if(c.toHTML()!==base){el('text-format-status').textContent='原文本框已被其他操作修改，请关闭并重新打开。';return;} normalizeInlineFormatting(content); batch(()=>{c.addStyle(Object.fromEntries([...content.style].map(key=>[key,content.style.getPropertyValue(key)]))); c.addAttributes({'data-coedit-textbox':'true'}); c.components(content.innerHTML); protect(c);}); dialog.close(); };
+  function protect(c: Component) {
+    c.find('*').forEach(child => child.set({selectable:false,hoverable:false,draggable:false,resizable:false,layerable:false}, {silent:true}));
+  }
+  const protectAll = () => editor.Pages.getAll().forEach(page => page.getMainComponent().find('[data-coedit-textbox]').forEach(protect));
+  editor.on('load project:load', protectAll);
+  editor.on('component:add', (component: Component) => { let c: Component | undefined = component; while(c) { if(c.getAttributes()['data-coedit-textbox']) { protect(c); break; } c = c.parent(); } });
   editor.on('destroy',()=>{document.removeEventListener('selectionchange',capture);dialog.remove();button.remove();});
 }
