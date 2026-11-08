@@ -47,7 +47,7 @@ export function installArrows(editor: Editor, batch: (action: () => void) => voi
     return new XMLSerializer().serializeToString(clone);
   }
   function save() {
-    if (loading || !allowed()) return;
+    if (loading || !allowed() || editor.Pages.getSelected()?.getId()!==currentPage) return;
     const pageRoot = root(); if (!pageRoot) return;
     const value = JSON.stringify(json()), output = svg();
     batch(() => {
@@ -75,7 +75,7 @@ export function installArrows(editor: Editor, batch: (action: () => void) => voi
   }
   function align() {
     const node = root()?.getEl(), frame = editor.Canvas.getFrameEl();
-    if (!node || !frame) return;
+    if (!node || !frame) {host.hidden=true;toolbar.hidden=true;return}
     const rect = node.getBoundingClientRect(), iframe = frame.getBoundingClientRect(), outer = workspace.getBoundingClientRect();
     const z = iframe.width / frame.offsetWidth || editor.Canvas.getZoom() / 100;
     Object.assign(host.style, { left: `${iframe.left - outer.left + rect.left * z}px`, top: `${iframe.top - outer.top + rect.top * z}px`, width: `${1280 * z}px`, height: `${720 * z}px` });
@@ -87,6 +87,8 @@ export function installArrows(editor: Editor, batch: (action: () => void) => voi
     const page = editor.Pages.getSelected()?.getId() || '';
     const value = String(diagram()?.getAttributes()['data-coedit-edges'] || '{"cells":[]}');
     if (page !== currentPage || value !== loaded) {
+      bodyDrag=undefined;shield.remove();
+      if(page!==currentPage){mode=false;toggle.classList.remove('primary')}
       loading = true; currentPage = page; loaded = value; dirty = false;
       try { graph.fromJSON(JSON.parse(value)); pick(); } catch { graph.clearCells(); control('arrow-tip').textContent = '箭头数据读取失败。'; }
       finally { loading = false; }
@@ -133,7 +135,8 @@ export function installArrows(editor: Editor, batch: (action: () => void) => voi
   control('arrow-delete').onclick = () => { const edge = selectedEdge(); if (edge && allowed()) { edge.remove(); save(); pick(); } };
   let queued = false;
   const schedule = () => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; sync(); }); };
-  editor.on('load page:select canvas:frame:load canvas:zoom canvas:coords component:update', schedule);
+  editor.on('page:select project:load',sync);
+  editor.on('load canvas:frame:load canvas:zoom canvas:coords component:update', schedule);
   editor.on('component:selected', () => { if (mode) { mode = false; toggle.classList.remove('primary'); pick(); align(); } });
   const resize = new ResizeObserver(align); resize.observe(workspace);
   editor.on('destroy', () => { shield.remove(); resize.disconnect(); document.removeEventListener('mousemove', moveBody); document.removeEventListener('mouseup', finish); document.removeEventListener('touchend', finish); graph.dispose(); host.remove(); toolbar.remove(); });

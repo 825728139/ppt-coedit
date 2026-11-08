@@ -96,7 +96,10 @@ export async function importHtmlDeck(source: string, assets: File[] = [], source
     content.classList.add('import-page');
     let branch: Element = content;
     for (let parent = element.parentElement; parent && parent !== doc.body; parent = parent.parentElement) {
-      const wrapper = parent.cloneNode(false) as Element; wrapper.removeAttribute('hidden'); wrapper.append(branch); branch = wrapper;
+      const wrapper = parent.cloneNode(false) as HTMLElement; wrapper.removeAttribute('hidden');
+      // Our exported player centers/scales frames at runtime; editing uses the slide origin.
+      if(parent.hasAttribute('data-coedit-frame') || (parent.classList.contains('frame') && [...parent.children].some(child=>child.classList.contains('slide-root')))) Object.assign(wrapper.style,{position:'relative',left:'0px',top:'0px',width:'100%',height:'100%',transform:'none'});
+      wrapper.append(branch); branch = wrapper;
     }
     const body = doc.createElement('div'); body.className = `${doc.body.className} import-body`; body.style.cssText = doc.body.style.cssText;
     if (doc.body.id) body.id = doc.body.id;

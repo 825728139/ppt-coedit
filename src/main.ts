@@ -9,6 +9,7 @@ import { installTextFormat } from './text-format';
 import { descendants, slideRoot } from './component-tree';
 import { SourceDocument } from './source-document';
 import { installFileSession } from './file-session';
+import { installLocking, isLocked } from './locking';
 
 document.querySelector('#app')!.innerHTML = `
 <header><div class="brand">◈ 共页 <small>COEDIT / LAB</small></div><div class="document">人机协同演示文稿 <span id="status">准备中</span></div><button id="open-html"></button><button id="export">导出 HTML</button><button id="present" class="primary">▶ 放映</button></header>
@@ -103,13 +104,16 @@ const api = {
 };
 // Temporary regression harness only. Production has no Agent/LLM connection surface.
 if(new URLSearchParams(location.search).has('test')) (window as unknown as { pptAgent: typeof api }).pptAgent = api;
+installLocking(editor);
 installEditingTools(editor, batch);
 installTextFormat(editor, batch);
 installArrows(editor, batch);
 editor.on('update', changed); editor.on('page:select', renderPages); editor.on('component:selected component:deselected', selectInfo);
 editor.on('load', () => {
-  try { const stored = JSON.parse(localStorage.getItem(storageKey) || 'null'); if (stored?.schemaVersion === 1) { editor.loadProjectData(stored.project); revision = stored.revision; } else { [...editor.Pages.getAll()].forEach(p => editor.Pages.remove(p)); addPage(); } } catch { addPage(); status('存档读取失败，已创建新文稿'); }
+  let recovered=false;
+  try { const stored = JSON.parse(localStorage.getItem(storageKey) || 'null'); if (stored?.schemaVersion === 1) { editor.loadProjectData(stored.project);if(!editor.Pages.getAll().length||editor.Pages.getAll().some(page=>!slideRoot(page.getMainComponent())))throw new Error('invalid_project_pages'); revision = Number.isSafeInteger(stored.revision)&&stored.revision>=0?stored.revision:0; } else { [...editor.Pages.getAll()].forEach(p => editor.Pages.remove(p)); addPage(); } } catch { [...editor.Pages.getAll()].forEach(p=>editor.Pages.remove(p));editor.Css.clear();revision=0;addPage();recovered=true; }
   editor.UndoManager.stop(); setPreviewZoom(50); muted = false; commit();
+  if(recovered)status('存档读取失败，已创建新文稿');
 });
 $('add-page').onclick = () => batch(() => addPage());
 $('add-text').onclick = () => addObject('<div class="slide-object" style="left:100px;top:180px;width:600px;height:90px;font-size:40px">双击编辑文字</div>');
@@ -122,12 +126,12 @@ $('zoom-out').onclick = () => setPreviewZoom(editor.Canvas.getZoom() - 10);
 $('zoom-in').onclick = () => setPreviewZoom(editor.Canvas.getZoom() + 10);
 $('zoom-reset').onclick = () => setPreviewZoom(100);
 $('zoom-fit').onclick = () => setPreviewZoom(Math.floor(Math.min((workspace.clientWidth - 80) / 1280, (workspace.clientHeight - 120) / 720) * 100));
-$('lock').onclick = () => { const c = editor.getSelected(); if (c && c.getClasses().includes('slide-object')) batch(() => { const locked = !c.get('coeditLocked'); c.set({ coeditLocked: locked, draggable: !locked, resizable: !locked, removable: !locked, editable: !locked }); selectInfo(); }); };
-$('delete-object').onclick = () => { const c = editor.getSelected(); if (c && c.get('removable') && !c.get('coeditLocked')) batch(() => { c.remove(); }); };
+$('lock').onclick = () => { const c = editor.getSelected(); if (c && c.getClasses().includes('slide-object')) batch(() => { c.set('coeditLocked',!c.get('coeditLocked')); selectInfo(); }); };
+$('delete-object').onclick = () => { const c = editor.getSelected(); if (c && c.get('removable') && !isLocked(c)) batch(() => { c.remove(); }); };
 document.querySelectorAll<HTMLButtonElement>('[data-panel]').forEach(b => b.onclick = () => { for (const id of ['design', 'agent']) $(id).hidden = id !== b.dataset.panel; document.querySelectorAll('[data-panel]').forEach(x => x.classList.toggle('active', x === b)); });
 $('import-html').onclick = () => { try { batch(() => addPage($<HTMLTextAreaElement>('html-input').value, $<HTMLTextAreaElement>('css-input').value)); $('result').textContent = '已导入新页面'; } catch (e) { $('result').textContent = String(e); } };
 function presentation() { const slides = editor.Pages.getAll().map(p => { const c = slideRoot(p.getMainComponent()) || p.getMainComponent(); return { html: new DOMParser().parseFromString(c.toHTML(), 'text/html').body.innerHTML, css: editor.getCss({ component: c }) }; }); return `<!doctype html><html><head><meta charset="utf-8"><title>共页演示</title><style>body{margin:0;background:#15292b}.frame{position:absolute;width:1280px;height:720px;left:50%;top:50%;transform-origin:center}.frame[hidden]{display:none}</style></head><body>${slides.map((s,i) => `<div class="frame" ${i ? 'hidden' : ''}><style>${s.css}</style>${s.html}</div>`).join('')}<script>const slides=[...document.querySelectorAll('.frame')];let i=0;function fit(){slides.forEach(s=>s.style.transform='translate(-50%,-50%) scale('+Math.min(innerWidth/1280,innerHeight/720)+')')}onresize=fit;fit();onkeydown=e=>{if(['ArrowRight',' ','ArrowLeft'].includes(e.key)){e.preventDefault();slides[i].hidden=true;i=(i+(e.key==='ArrowLeft'?-1:1)+slides.length)%slides.length;slides[i].hidden=false}};<\/script></body></html>`; }
-$('export').onclick = async () => { await flushTextEditing(); commit(); const url = URL.createObjectURL(new Blob([sourceDocument?.render(editor) ?? presentation()], { type: 'text/html' })); const a = document.createElement('a'); a.href = url; a.download = '共页演示.html'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); };
+$('export').onclick = async () => { try{await flushTextEditing(); commit(); const url = URL.createObjectURL(new Blob([sourceDocument?.render(editor) ?? presentation()], { type: 'text/html' })); const a = document.createElement('a'); a.href = url; a.download = '共页演示.html'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000)}catch(error){status(`导出失败：${String(error)}`)} };
 $('present').onclick = async () => { await flushTextEditing(); commit(); $<HTMLIFrameElement>('player-frame').srcdoc = presentation(); $<HTMLDialogElement>('player').showModal(); $<HTMLIFrameElement>('player-frame').focus(); };
 $('close-player').onclick = () => $<HTMLDialogElement>('player').close();
 

@@ -46,9 +46,10 @@ export function installEditingTools(editor: Editor, batch: (action: () => void) 
   for (const alignment of ['left', 'center', 'right']) el(`quick-${alignment}`).onclick = () => changeStyle({ 'text-align': alignment });
   el<HTMLInputElement>('quick-gap').onchange = event => { const value = Number((event.target as HTMLInputElement).value); if (value >= 0 && value <= 300) changeStyle({ gap: `${value}px` }); else update(); };
   el('object-parent').onclick = () => { const p = editor.getSelected()?.parent(); if (p && p !== editor.getWrapper()) editor.select(p); };
-  el('replace-image').onclick = () => { el<HTMLInputElement>('replace-image-file').value = ''; el<HTMLInputElement>('replace-image-file').click(); };
+  let imageTarget:Component|undefined;
+  el('replace-image').onclick = () => { imageTarget=editor.getSelected();el<HTMLInputElement>('replace-image-file').value = ''; el<HTMLInputElement>('replace-image-file').click(); };
   el<HTMLInputElement>('replace-image-file').onchange = async () => {
-    const target = editor.getSelected(), targetId = target?.getId();
+    const target = imageTarget || editor.getSelected(), targetId = target?.getId();imageTarget=undefined;
     const file = el<HTMLInputElement>('replace-image-file').files?.[0]; if (!file || !targetId || !file.type.startsWith('image/')) return;
     const reader = new FileReader();
     reader.onload = () => { const c = editor.Components.getById(targetId); if (!c || c !== target || locked(c)) return; batch(() => { c.addAttributes({ src: String(reader.result) }); if (c.get('type') === 'image') c.set('src', String(reader.result)); }); update(); };

@@ -38,7 +38,7 @@ npm run dev
 - 自由定位对象：方向键移动 1px，Shift + 方向键移动 10px。输入文字、操作输入框时不会触发对象微调。
 - Flex/Grid 子元素保持流式布局，不强制改成绝对定位。选择 Flex/Grid 容器后可在工具栏调整 gap 间距。
 - 选择图片后点击「替换图片」，读取本地图片并保留原位置和尺寸，支持撤销。
-- 工具栏显示当前布局类型及锁定状态。工具栏修改尊重父级锁；右侧原生属性面板的严格锁策略仍待完善。
+- 工具栏显示当前布局类型及锁定状态。原生样式面板、删除、文字编辑和拖动缩放同样遵守对象及祖先锁，解锁恢复原有操作能力。
 
 快捷工具栏和右侧样式面板默认只修改选中的对象，优先使用对象独立样式，避免修改共享 class 导致其他文本框变化。
 
@@ -85,6 +85,8 @@ HTML 文件是协作的唯一权威内容。无改动保存保持源码完全一
 
 独立文件工作流的最新三轮审查见 [FILE_REVIEW.md](./FILE_REVIEW.md)，包含源码回写、文件句柄和重载状态的修复及验证。
 
+整体操作链路审查见 [OVERALL_REVIEW.md](./OVERALL_REVIEW.md)，包含父级锁、放映往返、箭头切页、换图及草稿恢复。
+
 ```powershell
 npm test
 npm run build
@@ -93,6 +95,7 @@ $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path (Split-Path (Get-Location) -Parent) '.
 node tests/file-workflow-browser.mjs
 node tests/file-review-browser.mjs
 node tests/file-session-browser.mjs
+node tests/overall-review-browser.mjs
 node tests/browser.mjs
 node tests/import-browser.mjs
 node tests/editing-browser.mjs
@@ -112,7 +115,7 @@ node tests/review-browser.mjs
 
 - 当前页面列表是文字列表，尚未实现真实缩略图、排序和页面复制。
 - 富文本、复杂嵌套布局、中文输入法及拖动手势的历史分组仍需专项验证；撤销以按钮操作为准，暂未统一 iframe 内的快捷键。
-- 锁主要限制对象几何操作；后代的人工文字/样式编辑还需补齐严格锁策略。
+- 锁属于本机编辑工程状态，不写入源 HTML；外部更新重新加载后需要按需重新锁定。
 - CSS 选择器使用语法树处理，支持含逗号的 :is() 等选择器及分组规则；文件导入停用动画并提示。复杂 CSS 嵌套、SVG 内部引用及脚本布局仍需专项适配，不承诺任意网页 HTML/CSS 无损导入。
 - 文本 patch 限于没有结构子元素的文字对象，避免替换整个卡片结构。修改含多段富文本的对象应后续增加精确文本命令。
 - 工程使用 localStorage 与图片 data URL，适合验证；后续迁移到 IndexedDB + Blob。存储失败会显示状态。历史只在本次会话保留，刷新恢复内容不恢复历史。
@@ -123,7 +126,7 @@ node tests/review-browser.mjs
 
 ## 开源项目复用统计
 
-统计时间：2026-11-08T13:03:44.907Z。当前实际通过 npm 接入 **GrapesJS、AntV X6、PostCSS、postcss-selector-parser、parse5**，未从 clone 的仓库直接复制实现代码。X6 的已安装版本见 package-lock.json。其他已克隆仓库仍为调研参考。
+统计时间：2026-11-08T13:24:03.787Z。当前实际通过 npm 接入 **GrapesJS、AntV X6、PostCSS、postcss-selector-parser、parse5**，未从 clone 的仓库直接复制实现代码。X6 的已安装版本见 package-lock.json。其他已克隆仓库仍为调研参考。
 
 ### 占原项目与本项目维护源码的比例
 
@@ -144,22 +147,22 @@ node tests/review-browser.mjs
 
 这不表示 GrapesJS/X6 没有被使用。对于 npm 依赖，**使用了原仓库整体多少源码或多少执行路径，目前未测覆盖率**；不会把引入入口写成“使用整个原项目 100%”。仓库还包含测试、工具和文档，不能以 API 调用数量推断源码覆盖率。
 
-本项目维护的运行源码（src + index.html）共 **12 个文件、959 个非空物理行、96,402 UTF-8 字节**。不含测试、配置、脚本、文档、node_modules 和 dist；紧凑排版下行数不代表开发工作量。
+本项目维护的运行源码（src + index.html）共 **13 个文件、996 个非空物理行、99,200 UTF-8 字节**。不含测试、配置、脚本、文档、node_modules 和 dist；紧凑排版下行数不代表开发工作量。
 
 ### 占当前应用运行时 JavaScript 的比例
 
-分母为 Rollup renderedLength 合计 **5,027,584 个字符**，即 tree-shaking 后、最终 chunk 压缩前的模块代码量。不是下载体积、gzip 大小、执行覆盖率、功能贡献或开发投入占比。CommonJS 辅助模块按来源包归属；GrapesJS 发布文件内自带的依赖未再细分。
+分母为 Rollup renderedLength 合计 **5,030,224 个字符**，即 tree-shaking 后、最终 chunk 压缩前的模块代码量。不是下载体积、gzip 大小、执行覆盖率、功能贡献或开发投入占比。CommonJS 辅助模块按来源包归属；GrapesJS 发布文件内自带的依赖未再细分。
 
 | 来源 | 构建 JS 字符数 | 占当前运行时 JS |
 | --- | ---: | ---: |
-| grapesjs | 2,771,914 | 55.134% |
-| @antv/x6 | 1,254,817 | 24.959% |
-| parse5 | 314,061 | 6.247% |
-| lodash-es | 178,025 | 3.541% |
-| postcss-selector-parser | 155,635 | 3.096% |
-| postcss | 128,045 | 2.547% |
-| application | 82,311 | 1.637% |
-| entities | 59,056 | 1.175% |
+| grapesjs | 2,771,914 | 55.105% |
+| @antv/x6 | 1,254,817 | 24.946% |
+| parse5 | 314,061 | 6.243% |
+| lodash-es | 178,025 | 3.539% |
+| postcss-selector-parser | 155,635 | 3.094% |
+| postcss | 128,045 | 2.546% |
+| application | 84,951 | 1.689% |
+| entities | 59,056 | 1.174% |
 | mousetrap | 35,845 | 0.713% |
 | dom-align | 35,718 | 0.710% |
 | cssesc | 3,690 | 0.073% |
